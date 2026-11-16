@@ -1,0 +1,10 @@
+node_modules/
+.next/
+.env*
+*.log
+.claude/
+CLAUDE.md
+*.local
+.secrets/
+*.key
+*.pem

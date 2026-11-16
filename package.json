@@ -1,0 +1,12 @@
+{
+  "name": "ascend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Gym progression PWA: every session is a mission, every logged set is experience.",
+  "scripts": {
+    "test": "node --test",
+    "dev": "node tools/dev_server.mjs 8791"
+  },
+  "license": "SEE LICENSE IN LICENSE.md"
+}
