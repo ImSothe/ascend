@@ -38,14 +38,29 @@ today's load goes up or stays, and turns consistency into something visible.
 - **Status**: four stat bars derived from the log (upper-body loads, lower-body
   loads, weekly volume, consistency) and a body-weight log.
 - **Log**: month calendar and session history. Export and import as JSON.
+- **Supervision** (`app/core/coach.js`): deterministic, tested rules run on
+  every visit: stalls (three sessions at one load without more reps, with a 10 %
+  deload target), strength drops over 7 %, incomplete missions, a week that can
+  no longer reach four missions, body-weight rate (too fast, gaining, flat),
+  weigh-in and progress-photo reminders (every 7 and 14 days), and a deload
+  after six full weeks.
+- **AI review** (`app/data/ai.js`): on request, Gemini (Firebase AI Logic,
+  free tier) reads a summary of the log (loads, attendance, weights, the rule
+  findings; no name or email) and, if allowed, the first and latest progress
+  photo, and answers with a status, a summary and 2-4 concrete actions. It is
+  told never to contradict the rules. App Check (reCAPTCHA Enterprise) is
+  enforced on the endpoint; three reviews per day.
+- **Progress photos**: kept only on the device (IndexedDB), never in the
+  database; a 768 px copy goes to the AI review only when asked.
 
 The streak counts consecutive weeks with all four missions done, not days: a
 gym plan has rest days, and a daily streak would punish them.
 
 ## Cloud copy
 
-Local-first: the app never waits for the network. Sign-in is optional and the
-Firebase SDK is only downloaded when the account card is opened.
+Local-first: the app never waits for the network. The first screen offers
+Google sign-in or a device-only mode; the Firebase SDK is only downloaded when
+sign-in is offered or was used before.
 
 - **Sync** (`app/core/merge.js`, `app/data/cloud.js`): pull what changed, merge,
   push only the difference. The newest edit wins per session, deletions travel
@@ -87,12 +102,13 @@ tests/           node:test suite
 
 ## Status
 
-Version 0.2. The programme is defined in code and is not editable in the app
+Version 0.3. The programme is defined in code and is not editable in the app
 yet; starting loads are personal data and live in each person's state.
 
 Checked in Chromium at a phone viewport. The sign-in window opens Google's
-account page without CSP violations, and Firestore refuses anonymous reads and
-writes. Not yet verified: a complete sign-in and sync with a real account, a
+account page without CSP violations, Firestore refuses anonymous reads and
+writes, and a real AI review (with App Check, text and a test image) returns a
+valid answer in about 6 seconds. Not yet verified: a complete sign-in and sync with a real account, a
 real iPhone or Android device, and the rules against the Firestore emulator.
 
 The rank and stat numbers are a game layer, not a fitness assessment.

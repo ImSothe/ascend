@@ -27,13 +27,14 @@ service cloud.firestore {
     }
 
     function validProfile(d) {
-      return d.keys().hasOnly(['startXp', 'weightKg', 'weights', 'rest', 'starts', 'updatedAt'])
+      return d.keys().hasOnly(['startXp', 'weightKg', 'body', 'weights', 'rest', 'starts', 'updatedAt'])
         && stamped(d)
         && d.startXp is number && d.startXp >= 0 && d.startXp <= 10000000
         && (d.weightKg == null || d.weightKg is number)
         && d.weights is list && d.weights.size() <= 2000
         && d.rest is map && d.rest.size() <= 200
-        && d.starts is map && d.starts.size() <= 200;
+        && d.starts is map && d.starts.size() <= 200
+        && (!('body' in d) || (d.body is map && d.body.size() <= 10));
     }
 
     match /users/{uid}/sessions/{id} {

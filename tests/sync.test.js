@@ -149,7 +149,7 @@ test('readRemote distrusts the cloud', () => {
   assert.deepEqual(Object.keys(r.sessions[0].sets), ['lat-pulldown']);
   assert.equal(r.sessions[0].xp, 100000);
   assert.deepEqual(r.tombs, { gone: 7 });
-  assert.deepEqual(r.group, { profile: { startXp: 0, weightKg: null }, weights: [], rest: {}, starts: { rdl: 60 }, profileAt: 3 });
+  assert.deepEqual(r.group, { profile: { startXp: 0, weightKg: null, body: {} }, weights: [], rest: {}, starts: { rdl: 60 }, profileAt: 3 });
 });
 
 test('a session edited after its deletion elsewhere comes back', () => {

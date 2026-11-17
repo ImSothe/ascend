@@ -15,7 +15,7 @@ export function tombDoc(at) {
 
 export function profileDoc(state) {
   return {
-    startXp: state.profile.startXp, weightKg: state.profile.weightKg,
+    startXp: state.profile.startXp, weightKg: state.profile.weightKg, body: state.profile.body ?? {},
     weights: state.weights, rest: state.rest, starts: state.starts, updatedAt: state.profileAt,
   };
 }
@@ -39,7 +39,7 @@ export function readRemote(docs, profile) {
   }
   if (profile && typeof profile === 'object') {
     remote.group = cleanProfileGroup({
-      profile: { startXp: profile.startXp, weightKg: profile.weightKg },
+      profile: { startXp: profile.startXp, weightKg: profile.weightKg, body: profile.body },
       weights: profile.weights, rest: profile.rest, starts: profile.starts, profileAt: profile.updatedAt,
     });
   }

@@ -11,3 +11,8 @@ export const FIREBASE_CONFIG = {
   messagingSenderId: '714873777005',
   appId: '1:714873777005:web:3047bd16262a42032c0864',
 };
+
+// Public site key of the reCAPTCHA Enterprise (Fraud Defense) key that App
+// Check uses to prove AI requests come from this web app. Public by design;
+// there is no secret half for this provider.
+export const APP_CHECK_SITE_KEY = '6Lcy6CQuAAAAAGgbdXF_4I3VXmZLQGugZ254Jahb';

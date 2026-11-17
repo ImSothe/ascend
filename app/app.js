@@ -4,8 +4,11 @@ import {
   RANKS, XP_PER_SET, XP_LOAD_UP, XP_COMPLETE, xpForLevel, progress, sessionXp, totalXp, averageSessionXp,
   isoDate, parseDate, weekStreak, stats, systemMessage,
 } from './core/player.js';
-import { load, save, addSession, removeSession, touchProfile, wipe, adopt, hasData, REST_MIN, REST_MAX } from './core/store.js';
+import { load, save, addSession, removeSession, touchProfile, wipe, adopt, hasData, cleanBody, REST_MIN, REST_MAX } from './core/store.js';
+import { review, aiSummary } from './core/coach.js';
 import { createCloud } from './data/cloud.js';
+import { createAI, DAILY_LIMIT } from './data/ai.js';
+import { addPhoto, getPhoto, removePhoto, clearPhotos, shrink, toBase64, AI_SIDE } from './data/photos.js';
 
 let state = load();
 let tab = 'mission';
@@ -50,6 +53,27 @@ const cloud = createCloud({
   patchState: (fn) => { fn(state); save(state); },
 });
 const restFor = (e) => state.rest[e.id] ?? e.rest;
+const ai = createAI({ cloud });
+const WELCOME_KEY = 'ascend.welcome';
+const welcomed = () => { try { return !!localStorage.getItem(WELCOME_KEY); } catch { return true; } };
+const markWelcomed = () => { try { localStorage.setItem(WELCOME_KEY, '1'); } catch { /* shown again next time, harmless */ } };
+cloud.subscribe(() => { if (cloud.user && !welcomed()) { markWelcomed(); render(); } });
+
+// One hidden file input for progress photos, reused by every "take photo" button.
+const photoInput = h('input', { type: 'file', accept: 'image/*', hidden: true });
+photoInput.addEventListener('change', async () => {
+  const file = photoInput.files?.[0];
+  photoInput.value = '';
+  if (!file) return;
+  try {
+    state.photos.push(await addPhoto(file, today()));
+    save(state);
+  } catch { /* storage full or unreadable image: nothing saved */ }
+  render();
+});
+document.body.append(photoInput);
+const takePhoto = () => photoInput.click();
+let photoUrls = [];
 
 function icon(path) {
   return s('svg', { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, s('path', { d: path }));
@@ -76,6 +100,9 @@ const VIEWS = { mission: missionView, status: statusView, road: roadView, log: l
 const TABS = [['mission', 'Misión'], ['status', 'Estado'], ['road', 'Camino'], ['log', 'Registro']];
 
 function render() {
+  for (const u of photoUrls) URL.revokeObjectURL(u);
+  photoUrls = [];
+  if (!welcomed() && cloud.status !== 'unconfigured' && !cloud.user) { document.getElementById('app').replaceChildren(welcomeView()); return; }
   const p = progress(totalXp(state));
   document.documentElement.dataset.rank = p.rank.id;
   document.getElementById('app').replaceChildren(hud(p), ...VIEWS[tab](p), tabBar());
@@ -130,6 +157,7 @@ function missionView(p) {
     h('div', { class: `banner ${msg.tone}`, role: 'status' }, h('span', { class: 'label' }, 'Sistema'), h('span', null, msg.text)),
     h('div', { class: 'week' }, label(`Semana ${Math.min(streak.thisWeek, streak.target)}/${streak.target}`),
       h('div', { class: 'pips' }, Array.from({ length: streak.target }, (_, i) => h('i', { class: i < streak.thisWeek ? 'on' : '' })))),
+    supervisionPanel(t),
   ];
 
   if (!state.draft && last?.date === t) {
@@ -408,12 +436,14 @@ function statusView(p) {
       h('div', { class: 'stat', style: { '--fill': color } },
         h('span', { class: 'k' }, k), h('div', { class: 'bar thick' }, fill(st[k] / 100, color)), h('span', { class: 'v' }, String(st[k])),
         h('p', null, `${name}. ${info}.`)))),
-    panel('', label('Peso corporal'),
+    h('section', { class: 'panel', id: 'weight' }, h('div', { class: 'in' }, label('Peso corporal'),
       lastW ? h('div', { class: 'mission-meta' }, h('span', null, 'Actual ', h('b', null, `${kgText(lastW.kg)} kg`)),
         h('span', null, weights.length > 1 ? `${delta > 0 ? '+' : ''}${kgText(delta)} kg desde ${longDate(first.date)}` : 'Primer registro'))
         : h('p', { class: 'dim small', style: { 'margin-top': '6px' } }, 'Pésate una vez por semana, en ayunas, el mismo día.'),
       weights.length > 1 && h('div', { class: 'trend' }, sparkline(weights.slice(-20).map((w) => w.kg))),
-      h('div', { class: 'field' }, wInput, h('button', { class: 'btn', onclick: logWeight }, 'Registrar'))),
+      h('div', { class: 'field' }, wInput, h('button', { class: 'btn', onclick: logWeight }, 'Registrar')))),
+    bodyPanel(),
+    photosPanel(),
     startPanel(),
     cloudPanel(),
     dataPanel(),
@@ -453,6 +483,129 @@ function startPanel() {
     h('div', { class: 'mission-meta' }, h('span', null, 'Cargas de partida ', count)),
     h('p', { class: 'dim small', style: { 'margin-top': '6px' } }, 'El peso con el que harías el rango de repeticiones dejando 1-2 en reserva, no tu máximo. Solo se usa hasta que registres ese ejercicio.'),
     toggle, list);
+}
+
+// ── Welcome / sign-in ────────────────────────────────────────────────────
+function welcomeView() {
+  cloud.prepare().catch(() => {});      // load sign-in now so the tap opens Google's window at once
+  const note = h('p', { class: 'dim small', role: 'status' }, '');
+  const go = h('button', { class: 'btn', onclick: async () => {
+    note.textContent = '';
+    await cloud.signIn();
+    if (!cloud.user && cloud.error) note.textContent = cloud.error;
+  } }, 'Entrar con Google');
+  return h('main', { class: 'welcome' },
+    h('div', { class: 'hex big' }, h('span', null, 'A')),
+    h('h1', { class: 'display' }, 'Ascend'),
+    h('p', { class: 'tag' }, 'Cada sesión es una misión. Cada serie, experiencia.'),
+    h('ul', { class: 'perks' },
+      h('li', null, 'Tu progreso guardado en tu cuenta y en cualquier móvil'),
+      h('li', null, 'Supervisión diaria: estancamientos, descargas, peso y fotos'),
+      h('li', null, 'Revisión de tu progreso con IA')),
+    go, note,
+    h('button', { class: 'link', onclick: () => { markWelcomed(); render(); } }, 'Usar sin cuenta (solo en este dispositivo)'));
+}
+
+// ── Supervision ──────────────────────────────────────────────────────────
+const AI_ERRORS = {
+  'signed-out': 'Inicia sesión (Estado → Cuenta) para pedir la revisión con IA.',
+  'not-configured': 'La IA no está configurada en esta versión.',
+  limit: `Máximo ${DAILY_LIMIT} revisiones al día. Vuelve mañana.`,
+  quota: 'Se agotó el cupo gratuito de la IA por hoy. Prueba más tarde.',
+  timeout: 'La IA tardó demasiado. Prueba otra vez.',
+  offline: 'Sin conexión.',
+  'bad-answer': 'La IA respondió algo ilegible. Prueba otra vez.',
+  unavailable: 'La IA no está disponible ahora mismo.',
+};
+
+function supervisionPanel(t) {
+  const findings = review(state, t);
+  const items = findings.map((x) => h('li', { class: `find ${x.level}` },
+    h('b', null, x.title), h('span', null, x.text),
+    x.action === 'photo' && h('button', { class: 'mini', onclick: takePhoto }, 'Hacer foto'),
+    (x.action === 'weigh' || x.action === 'body') && h('button', { class: 'mini', onclick: () => { tab = 'status'; render(); document.querySelector(x.action === 'weigh' ? '#weight' : '#body')?.scrollIntoView({ block: 'start' }); } }, x.action === 'weigh' ? 'Registrar peso' : 'Completar')));
+  const list = h('ul', { class: 'finds' }, items.slice(0, 3));
+  const more = items.length > 3 && h('button', { class: 'link', onclick: () => { list.replaceChildren(...items); more.remove(); } }, `Ver los ${items.length} avisos`);
+  return panel(findings[0].level === 'alert' ? 'alert' : 'sys', label('Supervisión del Sistema'), list, more, aiBlock(t));
+}
+
+function aiBlock(t) {
+  const out = h('div', { class: 'ai' });
+  const status = h('p', { class: 'dim small', role: 'status' }, '');
+  const withPhotos = h('input', { type: 'checkbox', checked: true, id: 'ai-photos' });
+  const result = h('div', null);
+  const show = (r, at) => result.replaceChildren(r ? h('div', { class: `ai-card ${r.estado}` },
+    h('div', { class: 'label' }, `Revisión con IA${at ? ` · ${new Date(at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}` : ''}`),
+    h('b', null, r.titular), h('p', null, r.resumen),
+    r.acciones.length ? h('ol', null, r.acciones.map((a) => h('li', null, a))) : null,
+    r.fotos ? h('p', { class: 'dim small' }, `Fotos: ${r.fotos}`) : null) : '');
+  show(ai.last(), ai.lastAt());
+  const go = h('button', { class: 'btn ghost', onclick: async () => {
+    go.disabled = true;
+    status.textContent = 'El Sistema está analizando tu progreso…';
+    try {
+      const photos = [];
+      if (withPhotos.checked && state.photos.length) {
+        const picks = state.photos.length > 1 ? [state.photos[0], state.photos.at(-1)] : [state.photos[0]];
+        for (const [i, ph] of picks.entries()) {
+          const blob = await getPhoto(ph.id);
+          if (blob) photos.push({ label: `Foto ${i === 0 && picks.length > 1 ? 'inicial' : 'más reciente'} (${ph.date}):`, base64: await toBase64(await shrink(blob, AI_SIDE, 0.75)) });
+        }
+      }
+      const res = await ai.run(aiSummary(state, t), photos, t);
+      if (res.ok) { show(res.review, Date.now()); status.textContent = ''; } else status.textContent = AI_ERRORS[res.reason] ?? AI_ERRORS.unavailable;
+    } catch {
+      status.textContent = AI_ERRORS.unavailable;
+    }
+    go.disabled = false;
+  } }, 'Pedir revisión del Sistema (IA)');
+  out.append(result, go,
+    state.photos.length ? h('label', { class: 'check-row', for: 'ai-photos' }, withPhotos, 'Incluir la primera y la última foto') : null,
+    status);
+  return out;
+}
+
+// ── Body and photos ──────────────────────────────────────────────────────
+const FAT_OPTIONS = ['', 'Abdomen y flancos', 'Pecho', 'Piernas y glúteo', 'Repartida'];
+
+function bodyPanel() {
+  const b = state.profile.body ?? {};
+  const field = (key, ph, mode = 'decimal') => h('input', { type: 'text', inputmode: mode, placeholder: ph, autocomplete: 'off', 'data-k': key, 'aria-label': ph, value: b[key] != null ? String(b[key]).replace('.', ',') : '' });
+  const inputs = [field('age', 'Edad', 'numeric'), field('heightCm', 'Altura (cm)', 'numeric'), field('kcal', 'Kcal diarias', 'numeric'), field('sleepH', 'Horas de sueño')];
+  const fat = h('select', { class: 'sel', 'aria-label': 'Dónde acumulas grasa' }, FAT_OPTIONS.map((o) => h('option', { value: o, selected: (b.fat ?? '') === o }, o || 'Dónde acumulas grasa')));
+  const note = h('p', { class: 'dim small', role: 'status' }, 'Afinan la supervisión y la revisión con IA. Las kcal, las de tu objetivo en foodie.');
+  const saveBody = () => {
+    const raw = { fat: fat.value };
+    for (const i of inputs) { const v = parseKg(i.value); if (v != null) raw[i.dataset.k] = v; }
+    state.profile.body = cleanBody(raw);
+    touchProfile(state); persist();
+    note.textContent = 'Guardado.';
+  };
+  return h('section', { class: 'panel', id: 'body' }, h('div', { class: 'in' },
+    label('Tu cuerpo'), h('div', { class: 'grid2' }, inputs), h('div', { class: 'field' }, fat), note,
+    h('button', { class: 'btn ghost', onclick: saveBody }, 'Guardar datos')));
+}
+
+function photosPanel() {
+  const shots = state.photos;
+  const grid = h('div', { class: 'photos' });
+  const picks = shots.length > 1 ? [['Inicio', shots[0]], ['Última', shots.at(-1)]] : shots.map((x) => ['Inicio', x]);
+  for (const [name, ph] of picks) {
+    const img = h('img', { alt: `Foto de progreso, ${name.toLowerCase()}, ${ph.date}` });
+    getPhoto(ph.id).then((blob) => { if (blob) { const u = URL.createObjectURL(blob); photoUrls.push(u); img.src = u; } }).catch(() => {});
+    let armed = false;
+    const del = h('button', { class: 'mini', onclick: async () => {
+      if (!armed) { armed = true; del.textContent = '¿Seguro?'; return; }
+      await removePhoto(ph.id).catch(() => {});
+      state.photos = state.photos.filter((x) => x.id !== ph.id); save(state); render();
+    } }, 'Borrar');
+    grid.append(h('figure', null, img, h('figcaption', null, `${name} · ${longDate(ph.date)}`, del)));
+  }
+  return h('section', { class: 'panel', id: 'photos' }, h('div', { class: 'in' },
+    label(`Fotos de progreso · ${shots.length}`),
+    shots.length ? grid : h('p', { class: 'dim small', style: { 'margin-top': '6px' } }, 'Frente, mismo sitio, misma luz. La app te pedirá una cada 14 días.'),
+    h('p', { class: 'dim small', style: { 'margin-top': '8px' } }, 'Se guardan solo en este móvil. La revisión con IA envía la primera y la última a Google cuando la pides.'),
+    h('button', { class: 'btn ghost', onclick: takePhoto }, 'Nueva foto')));
 }
 
 const CLOUD_TEXT = {
@@ -501,9 +654,12 @@ function dataPanel() {
   } });
   const note = h('p', { class: 'dim small', style: { 'margin-top': '8px' }, role: 'status' }, 'Copia de seguridad en un archivo. Importar sustituye los datos de este dispositivo y de tu cuenta.');
   let armed = false;
-  const wipe = h('button', { class: 'btn ghost danger', onclick: () => {
-    if (!armed) { armed = true; wipe.textContent = 'Pulsa otra vez para borrar todo'; return; }
-    state = wipe(state); persist(); render();
+  const wipeBtn = h('button', { class: 'btn ghost danger', onclick: async () => {
+    if (!armed) { armed = true; wipeBtn.textContent = 'Pulsa otra vez para borrar todo'; return; }
+    state = wipe(state);
+    state.photos = [];
+    await clearPhotos().catch(() => {});
+    persist(); render();
   } }, 'Borrar todos los datos');
   const exportData = () => {
     const url = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }));
@@ -514,7 +670,7 @@ function dataPanel() {
     h('div', { class: 'row' },
       h('button', { class: 'btn ghost', onclick: exportData }, 'Exportar'),
       h('button', { class: 'btn ghost', onclick: () => file.click() }, 'Importar')),
-    wipe);
+    wipeBtn);
 }
 
 // ── Road ─────────────────────────────────────────────────────────────────

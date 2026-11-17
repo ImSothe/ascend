@@ -11,7 +11,7 @@ const EXERCISE = /^[a-z0-9-]{1,40}$/;
 export function emptyState() {
   return {
     version: 1,
-    profile: { startXp: 0, weightKg: null },
+    profile: { startXp: 0, weightKg: null, body: {} },
     sessions: [],      // live sessions, oldest first
     tombs: {},         // id of a deleted session -> time of the deletion
     weights: [],
@@ -19,6 +19,7 @@ export function emptyState() {
     starts: {},        // exercise id -> starting load in kg
     profileAt: 0,      // last edit of profile, weights, rest and starts (they travel together)
     dirty: { sessions: [], profile: false },   // what the cloud copy has not seen yet
+    photos: [],        // progress photos on this device: { id, date }; the images live in IndexedDB
     draft: null,
   };
 }
@@ -51,9 +52,21 @@ export function cleanSession(s) {
   };
 }
 
+/** Personal data the supervision uses. Every field is optional. */
+export function cleanBody(raw) {
+  const out = {};
+  const pick = (k, min, max) => { const v = num(raw?.[k]); if (v != null && v >= min && v <= max) out[k] = Math.round(v * 10) / 10; };
+  pick('age', 12, 100);
+  pick('heightCm', 120, 230);
+  pick('kcal', 800, 6000);
+  pick('sleepH', 3, 14);
+  if (typeof raw?.fat === 'string' && raw.fat.trim()) out.fat = raw.fat.trim().slice(0, 80);
+  return out;
+}
+
 /** Profile, weights, rest and starts: the part of the state that syncs as one record. */
 export function cleanProfileGroup(raw) {
-  const out = { profile: { startXp: 0, weightKg: null }, weights: [], rest: {}, starts: {}, profileAt: Math.max(0, num(raw?.profileAt) ?? 0) };
+  const out = { profile: { startXp: 0, weightKg: null, body: cleanBody(raw?.profile?.body) }, weights: [], rest: {}, starts: {}, profileAt: Math.max(0, num(raw?.profileAt) ?? 0) };
   out.profile.startXp = Math.max(0, Math.min(10000000, num(raw?.profile?.startXp) ?? 0));
   out.profile.weightKg = num(raw?.profile?.weightKg);
   for (const w of Array.isArray(raw?.weights) ? raw.weights.slice(0, 2000) : []) {
@@ -94,6 +107,10 @@ export function sanitize(raw) {
   }
   if (Array.isArray(raw.dirty?.sessions)) base.dirty.sessions = [...new Set(raw.dirty.sessions.filter((id) => typeof id === 'string' && ID.test(id)))];
   base.dirty.profile = raw.dirty?.profile === true;
+  for (const p of Array.isArray(raw.photos) ? raw.photos.slice(-500) : []) {
+    if (p && typeof p.id === 'string' && ID.test(p.id) && isDate(p.date)) base.photos.push({ id: p.id, date: p.date });
+  }
+  base.photos.sort((a, b) => a.date.localeCompare(b.date));
   if (raw.draft && typeof raw.draft.dayId === 'string') {
     base.draft = { dayId: raw.draft.dayId.slice(0, 4), sets: cleanSets(raw.draft.sets) };
   }
@@ -134,6 +151,7 @@ export function wipe(state, now = Date.now()) {
   next.tombs = { ...state.tombs };
   for (const s of state.sessions) next.tombs[s.id] = now;
   next.dirty.sessions = Object.keys(next.tombs);
+  next.photos = state.photos;        // the images are deleted by the caller, on this device
   touchProfile(next, now);
   return next;
 }
@@ -149,6 +167,7 @@ export function adopt(state, imported, now = Date.now()) {
   next.dirty.sessions = [...ids, ...Object.keys(next.tombs)];
   touchProfile(next, now);
   next.draft = null;
+  next.photos = state.photos;        // a backup file carries no images
   return next;
 }
 

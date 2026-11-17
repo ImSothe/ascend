@@ -25,7 +25,7 @@ const BATCH = 400;
 export function createCloud({ getState, replaceState, patchState, loadSdk = () => import('../vendor/firebase.js'),
   config = FIREBASE_CONFIG, storage = globalThis.localStorage, now = () => Date.now(), online = () => globalThis.navigator?.onLine !== false }) {
   const listeners = new Set();
-  let sdk = null, sdkPromise = null, auth = null, db = null, user = null;
+  let sdk = null, sdkPromise = null, app = null, auth = null, db = null, user = null;
   let status = /** @type {CloudStatus} */ (config.apiKey ? 'off' : 'unconfigured');
   let lastError = '';
   let lastSyncAt = 0;
@@ -40,7 +40,7 @@ export function createCloud({ getState, replaceState, patchState, loadSdk = () =
     if (status === 'off') set('loading');
     sdkPromise ||= loadSdk().then((m) => {
       sdk = m;
-      const app = m.initializeApp(config);
+      app = m.initializeApp(config);
       auth = m.initializeAuth(app, { persistence: [m.indexedDBLocalPersistence, m.browserLocalPersistence], popupRedirectResolver: m.browserPopupRedirectResolver });
       db = m.getFirestore(app);
       m.onAuthStateChanged(auth, onAuth);
@@ -154,6 +154,8 @@ export function createCloud({ getState, replaceState, patchState, loadSdk = () =
 
   return {
     prepare, signIn, signOut, sync, schedule, wake,
+    /** The initialised Firebase SDK and app, once loaded (the AI review reuses them). */
+    firebase: () => (sdk && app ? { sdk, app } : null),
     subscribe: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
     get status() { return status; },
     get error() { return lastError; },
