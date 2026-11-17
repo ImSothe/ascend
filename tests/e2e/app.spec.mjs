@@ -152,6 +152,21 @@ test('closing the app mid-mission keeps the sets already done', async () => {
   assert.equal(await page.locator('.chip', { hasText: 'Espalda' }).isDisabled(), true);
 });
 
+test('a busy machine: swap an exercise mid-mission and back', async () => {
+  const card = page.locator('.ex', { hasText: 'Press sentado guiado en máquina' });
+  await card.getByRole('button', { name: 'Cambiar por Press banca con mancuernas' }).click();
+  const swapped = page.locator('.ex', { hasText: 'Press banca con mancuernas' });
+  await swapped.waitFor();
+  assert.equal(await swapped.locator('.set').count(), 3);
+  assert.deepEqual((await state()).swaps, { 'machine-press': 'db-bench' });
+  assert.match(await page.locator('.ex .set').first().getAttribute('class'), /done/, 'sets already done are kept');
+  await tabTo('Estado');
+  await page.locator('.panel', { hasText: 'Ejercicios cambiados' }).getByRole('button', { name: 'Volver' }).click();
+  assert.deepEqual((await state()).swaps, {});
+  await tabTo('Misión');
+  await page.locator('.ex', { hasText: 'Press sentado guiado en máquina' }).waitFor();
+});
+
 test('the log lists the session and deletes it on a second tap', async () => {
   await tabTo('Registro');
   assert.equal(await page.locator('.sess').count(), 1);

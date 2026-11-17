@@ -1,5 +1,5 @@
 // Experience, levels, ranks, streak and the four stat bars. Pure functions.
-import { EXERCISES, WEEKLY_SESSIONS, WEEKLY_SETS } from './program.js';
+import { EXERCISES, optionsFor, WEEKLY_SESSIONS, WEEKLY_SETS } from './program.js';
 import { validSets, earnedLoadUp, bestE1rm, e1rm } from './progression.js';
 
 export const XP_PER_SET = 10;
@@ -116,16 +116,20 @@ export function weekStreak(sessions, today, target = WEEKLY_SESSIONS) {
 // ── Stats ────────────────────────────────────────────────────────────────
 const clamp = (n) => Math.max(0, Math.min(100, Math.round(n)));
 
+// Each base exercise scores its best option (itself or a variant it was swapped
+// for), so a swap neither dilutes nor double-counts the stat.
 function strength(sessions, area, starts) {
   const scores = [];
-  {
-    for (const exercise of EXERCISES) {
-      if (exercise.area !== area || !exercise.ref) continue;
+  for (const base of EXERCISES) {
+    if (base.area !== area || !base.ref) continue;
+    let score = 0;
+    for (const option of optionsFor(base.id)) {
       let best = 0;
-      for (const s of sessions) best = Math.max(best, bestE1rm(s.sets?.[exercise.id]));
-      if (!best && starts[exercise.id]) best = e1rm(starts[exercise.id], exercise.min);
-      scores.push(Math.min(1, best / e1rm(exercise.ref, exercise.min)));
+      for (const s of sessions) best = Math.max(best, bestE1rm(s.sets?.[option.id]));
+      if (!best && starts[option.id]) best = e1rm(starts[option.id], option.min);
+      score = Math.max(score, Math.min(1, best / e1rm(option.ref, option.min)));
     }
+    scores.push(score);
   }
   return scores.length ? clamp((100 * scores.reduce((a, b) => a + b, 0)) / scores.length) : 0;
 }

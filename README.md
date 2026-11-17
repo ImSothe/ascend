@@ -44,6 +44,14 @@ today's load goes up or stays, and turns consistency into something visible.
   no longer reach four missions, body-weight rate (too fast, gaining, flat),
   weigh-in and progress-photo reminders (every 7 and 14 days), and a deload
   after six full weeks.
+- **Adaptation**: the plan corrects itself. After three sessions at one load
+  without more reps, the next mission prescribes a 10 % deload automatically.
+  If six sessions pass without beating the best mark, deload included, the
+  supervision proposes the next variant of that lift (same muscle and
+  movement, e.g. T-bar row → chest-supported row) and swaps it with one tap;
+  with four or more lifts stuck it flags the whole routine. Every main lift
+  also has a "swap" button for when the machine is taken. History is kept per
+  exercise, so a swap never loses data.
 - **AI review** (`app/data/ai.js`): on request, with or without an account,
   Gemini (Firebase AI Logic, free tier) reads a summary of the log (loads, attendance, weights, the rule
   findings; no name or email) and, if allowed, the first and latest progress
@@ -91,18 +99,20 @@ npm run test:e2e     # the app in Chromium at a phone viewport (Playwright)
 
 Three layers, all run by CI on every push:
 
-- **Unit** (`tests/*.test.js`, 43): programme, double progression, XP and
+- **Unit** (`tests/*.test.js`, 46): programme, double progression, XP and
   ranks, streaks, stats, the supervision rules, the merge of two devices, the
   sync module against a fake Firestore, input sanitising, the AI answer parser,
   a check that the fields the app sends match the fields the rules allow, and
-  the sync resuming when the connection returns after an offline launch.
+  the sync resuming when the connection returns after an offline launch, and
+  the automatic deloads and plateau swaps.
 - **Rules** (`tests/rules`, 7): `firestore.rules` in the Firestore emulator
   with documents built by the app's own functions: the owner can read and write,
   nobody else can, nothing is deleted, malformed documents and unknown paths are
   refused.
-- **End to end** (`tests/e2e`, 12): the real app in Chromium at 390×844,
+- **End to end** (`tests/e2e`, 13): the real app in Chromium at 390×844,
   driven by taps and typing: welcome screen, starting point, a full mission with
   its XP and load increases, rest timer, progress photo, reload mid-mission,
+  swapping an exercise mid-mission,
   deleting a session, importing a backup, erasing everything, and no script
   errors or CSP violations.
 
@@ -142,7 +152,8 @@ The popup opens Google's account page and the Firebase handler pages answer
 like those of a working sibling project; the cause is still being
 investigated (most likely the OAuth consent configuration of the new project).
 Until it is fixed the app works in device-only mode, and data logged that way
-is uploaded on the first successful sign-in.
+is uploaded on the first successful sign-in. Exercise swaps are kept on the
+device only for now; syncing them needs a rules update.
 
 The rank and stat numbers are a game layer, not a fitness assessment.
 

@@ -63,8 +63,52 @@ export const DAYS = [
   },
 ].map((d, i) => ({ ...d, index: i, name: d.groups.join(' + ') }));
 
+// Alternatives for the main lifts: same muscle and movement, a new stimulus
+// when the original stops progressing (or the machine is taken).
+export const VARIANTS = {
+  'incline-db-press': [
+    up('incline-machine-press', 'Press inclinado en máquina', 3, 6, 10, '1-2', 5, 100, 180, 'kg', 'Respaldo inclinado. Baja controlado hasta estirar el pecho.'),
+    up('incline-smith', 'Press inclinado en multipower', 3, 6, 10, '1-2', 2.5, 100, 180, 'kg', 'Banco a 30°. La barra baja a la parte alta del pecho.'),
+  ],
+  'machine-press': [up('db-bench', 'Press banca con mancuernas', 3, 8, 12, '1-2', 2, 45, 150, 'kg por mancuerna', 'Escápulas atrás y abajo. Baja hasta estirar el pecho.')],
+  'cable-fly': [up('low-cable-fly', 'Aperturas en polea baja', 3, 12, 15, '0-1', 2.5, 50, 90, 'kg', 'De abajo arriba hasta la altura de los ojos. Enfoca el pecho alto.')],
+  'lat-pulldown': [
+    up('wide-pulldown', 'Jalón agarre ancho', 3, 8, 12, '1-2', 5, 110, 150, 'kg', 'Agarre algo más ancho que los hombros. Pecho a la barra.'),
+    up('neutral-pulldown', 'Jalón con agarre neutro', 3, 8, 12, '1-2', 5, 110, 150, 'kg', 'Codos hacia las caderas. Pausa abajo.'),
+  ],
+  't-bar-row': [
+    up('chest-row', 'Remo con apoyo en el pecho', 3, 8, 12, '1-2', 5, 100, 150, 'kg', 'Pecho pegado al apoyo: ni un balanceo.'),
+    up('db-row', 'Remo con mancuerna', 3, 8, 12, '1-2', 2, 50, 120, 'kg por mancuerna', 'Rodilla y mano en el banco. Lleva el codo a la cadera.'),
+  ],
+  'cable-row': [up('machine-row', 'Remo sentado en máquina', 3, 8, 12, '1-2', 5, 100, 150, 'kg', 'Pausa de 1 s atrás. Estira la espalda al volver.')],
+  ohp: [
+    up('machine-ohp', 'Press de hombro en máquina', 3, 8, 12, '1-2', 5, 80, 150, 'kg', 'Recorrido completo, espalda pegada al respaldo.'),
+    up('arnold-press', 'Press Arnold', 3, 8, 12, '1-2', 2, 30, 120, 'kg por mancuerna', 'Gira las palmas mientras subes. Sin prisa.'),
+  ],
+  'bayesian-curl': [up('preacher-curl', 'Curl en banco Scott', 3, 10, 15, '0-1', 2.5, 40, 90, 'kg', 'Brazo apoyado entero. Estira abajo sin rebotar.')],
+  'overhead-ext': [up('ez-skull', 'Press francés con barra Z', 3, 10, 15, '0-1', 2.5, 40, 90, 'kg', 'Codos fijos apuntando arriba. Baja detrás de la cabeza.')],
+  'leg-press': [
+    low('hack-squat', 'Sentadilla hack', 3, 8, 12, '2', 5, 180, 180, 'kg', 'Profundidad completa. Baja en 3 s.'),
+    low('smith-squat', 'Sentadilla en multipower', 3, 8, 12, '2', 5, 140, 180, 'kg', 'Pies algo adelantados. Baja hasta paralelo o más.'),
+  ],
+  rdl: [low('db-rdl', 'Peso muerto rumano con mancuernas', 3, 8, 12, '2', 2, 45, 150, 'kg por mancuerna', 'Cadera atrás, mancuernas pegadas a las piernas.')],
+  'hip-thrust': [low('machine-hip-thrust', 'Hip thrust en máquina', 3, 8, 12, '1-2', 5, 150, 150, 'kg', 'Pausa de 1 s arriba apretando glúteo.')],
+};
+
+/** The exercise and its alternatives, in the order the app rotates through them. */
+export const optionsFor = (baseId) => [EXERCISES_BY_ID.get(baseId), ...(VARIANTS[baseId] ?? [])].filter(Boolean);
+
+/** A day of the plan with the person's swaps applied. */
+export function planDay(id, swaps = {}) {
+  const day = dayById(id);
+  return { ...day, exercises: day.exercises.map((e) => optionsFor(e.id).find((x) => x.id === swaps[e.id]) ?? e) };
+}
+
 /** Every exercise once, in programme order. */
 export const EXERCISES = [...new Map(DAYS.flatMap((d) => d.exercises).map((e) => [e.id, e])).values()];
+const EXERCISES_BY_ID = new Map(EXERCISES.map((e) => [e.id, e]));
+/** Base exercises and every variant: what the history can contain. */
+export const ALL_EXERCISES = [...EXERCISES, ...Object.values(VARIANTS).flat()];
 
 /** Why a rest lasts what it lasts, shown next to the timer. */
 export function restReason(seconds) {

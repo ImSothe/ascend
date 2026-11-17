@@ -2,7 +2,7 @@
 // sessions, incomplete missions, body-weight trend, weigh-ins, progress photos
 // and deloads. These are deterministic and tested; the AI review only
 // comments on top of them, it never replaces them.
-import { DAYS, EXERCISES, dayById, WEEKLY_SESSIONS } from './program.js';
+import { DAYS, EXERCISES, ALL_EXERCISES, optionsFor, planDay, WEEKLY_SESSIONS } from './program.js';
 import { validSets, history, e1rm } from './progression.js';
 import { weekStreak, daysBetween, parseDate, isoDate } from './player.js';
 
@@ -26,7 +26,7 @@ function trainings(sessions, id) {
 /** Three sessions in a row at the same load without adding reps. */
 export function stalls(sessions) {
   const out = [];
-  for (const e of EXERCISES) {
+  for (const e of ALL_EXERCISES) {
     const t = trainings(sessions, e.id).slice(-3);
     if (t.length < 3) continue;
     const tops = t.map((x) => Math.max(...x.sets.map((s) => s.kg)));
@@ -38,10 +38,29 @@ export function stalls(sessions) {
   return out;
 }
 
+/**
+ * Main lifts whose current choice has gone six sessions (within eight weeks)
+ * without beating the best of the three before: time for the next variant.
+ */
+export function plateaus(sessions, swaps = {}, today) {
+  const out = [];
+  for (const base of EXERCISES) {
+    const list = optionsFor(base.id);
+    if (list.length < 2) continue;
+    const cur = list.find((e) => e.id === swaps[base.id]) ?? base;
+    const h = history(sessions, cur.id).filter((p) => { const age = daysBetween(p.date, today); return age >= 0 && age <= 56; });
+    if (h.length < 6) continue;
+    const six = h.slice(-6).map((p) => p.value);
+    if (Math.max(...six.slice(3)) > Math.max(...six.slice(0, 3)) * 1.01) continue;
+    out.push({ base, from: cur, to: list[(list.indexOf(cur) + 1) % list.length] });
+  }
+  return out;
+}
+
 /** Last estimated 1RM more than 7 % under the best of the three before it. */
 export function regressions(sessions) {
   const out = [];
-  for (const e of EXERCISES) {
+  for (const e of ALL_EXERCISES) {
     const h = history(sessions, e.id);
     if (h.length < 4) continue;
     const last = h[h.length - 1].value;
@@ -68,7 +87,7 @@ export function weightTrend(weights, today) {
  */
 export function review(state, today) {
   const f = [];
-  const add = (level, code, title, text, action) => f.push(action ? { level, code, title, text, action } : { level, code, title, text });
+  const add = (level, code, title, text, action, extra) => f.push({ level, code, title, text, ...(action ? { action } : {}), ...extra });
   const sessions = state.sessions;
   const body = state.profile.body ?? {};
 
@@ -89,7 +108,7 @@ export function review(state, today) {
   // The last mission, completed or not.
   const last = sessions[sessions.length - 1];
   if (last) {
-    const day = dayById(last.dayId);
+    const day = planDay(last.dayId, state.swaps);
     const planned = day.exercises.reduce((n, e) => n + e.sets, 0);
     const done = day.exercises.reduce((n, e) => n + Math.min(e.sets, validSets(last.sets?.[e.id]).length), 0);
     if (done < planned * 0.75) add('warn', 'incomplete', 'Última misión incompleta', `${day.name}: ${done}/${planned} series. Si faltó tiempo, quita un ejercicio de aislamiento, no las series de los básicos.`);
@@ -101,6 +120,12 @@ export function review(state, today) {
   for (const r of regressions(sessions)) {
     add('warn', 'regress', `${r.exercise.name} va a peor`, `Tu fuerza estimada cayó un ${r.dropPct} % respecto a tus últimas sesiones. Revisa sueño, comida y que llegues descansado.`);
   }
+
+  const flat = plateaus(sessions, state.swaps, today);
+  for (const p of flat) {
+    add('warn', 'swap', `Cambia ${p.from.name}`, `Seis sesiones sin superar tu mejor marca, también tras la descarga. Cámbialo por ${p.to.name}: mismo músculo, estímulo nuevo. Tu historial de ${p.from.name} se guarda.`, 'swap', { swap: { base: p.base.id, to: p.to.id } });
+  }
+  if (flat.length >= 4) add('alert', 'routine', 'Rutina estancada', `${flat.length} ejercicios principales sin progresar. Haz una semana de descarga (mismas cargas, mitad de series) y aplica los cambios de ejercicio. Revisa sueño y kcal.`);
 
   // Body weight.
   const lastW = state.weights[state.weights.length - 1];
@@ -140,7 +165,7 @@ function nextGroups(sessions) {
 export function aiSummary(state, today, findings = review(state, today)) {
   const body = state.profile.body ?? {};
   const exercises = [];
-  for (const e of EXERCISES) {
+  for (const e of ALL_EXERCISES) {
     const t = trainings(state.sessions, e.id).slice(-4);
     if (!t.length) continue;
     exercises.push({

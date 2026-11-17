@@ -115,3 +115,46 @@ test('AI answers are parsed defensively', async () => {
   assert.deepEqual(r.acciones, ['a', 'b', 'c', 'd']);
   assert.equal(r.fotos, '');
 });
+
+test('a stall turns into an automatic 10 % deload, then progression resumes', async () => {
+  const { verdictFor } = await import('../app/core/progression.js');
+  const e = dayById('D2').exercises.find((x) => x.id === 'lat-pulldown');   // 3 x 8-12, +5 kg
+  const s = [sess('2026-11-03', { 'lat-pulldown': [set(70, 10), set(70, 9), set(70, 8)] }),
+    sess('2026-11-10', { 'lat-pulldown': [set(70, 10), set(70, 9), set(70, 8)] }),
+    sess('2026-11-17', { 'lat-pulldown': [set(70, 10), set(70, 8), set(70, 8)] })];
+  assert.deepEqual(verdictFor(e, s), { state: 'DELOAD', kg: 60, target: '8-12' });
+  s.push(sess('2026-11-24', { 'lat-pulldown': [set(60, 12), set(60, 12), set(60, 12)] }));
+  assert.equal(verdictFor(e, s).state, 'UP');
+  assert.equal(verdictFor(e, s).kg, 65);
+  assert.equal(verdictFor(e, s.slice(0, 2)).state, 'HOLD', 'two sessions are not a stall');
+});
+
+test('six sessions without a new best suggest the next variant; swaps change the plan', async () => {
+  const { planDay, optionsFor } = await import('../app/core/program.js');
+  const { plateaus } = await import('../app/core/coach.js');
+  const st = base();
+  const dates = ['2026-10-01', '2026-10-08', '2026-10-15', '2026-10-22', '2026-10-29', '2026-11-05'];
+  st.sessions = dates.map((d) => sess(d, { 't-bar-row': [set(50, 10), set(50, 10), set(50, 9)] }));
+  const p = plateaus(st.sessions, {}, '2026-11-06');
+  assert.equal(p.length, 1);
+  assert.equal(p[0].to.id, optionsFor('t-bar-row')[1].id);
+  const f = review(st, '2026-11-06').find((x) => x.code === 'swap');
+  assert.deepEqual(f.swap, { base: 't-bar-row', to: 'chest-row' });
+
+  st.swaps = { 't-bar-row': 'chest-row' };
+  assert.ok(planDay('D2', st.swaps).exercises.some((e) => e.id === 'chest-row'));
+  assert.ok(!planDay('D2', st.swaps).exercises.some((e) => e.id === 't-bar-row'));
+  assert.equal(plateaus(st.sessions, st.swaps, '2026-11-06').length, 0, 'the new variant starts fresh');
+  // A new best in the last three sessions is progress.
+  st.sessions[5] = sess(dates[5], { 't-bar-row': [set(55, 10)] });
+  assert.equal(plateaus(st.sessions, {}, '2026-11-06').length, 0);
+});
+
+test('swaps are sanitised and strength counts the best option once', async () => {
+  const { stats } = await import('../app/core/player.js');
+  const s = sanitize({ version: 1, swaps: { 't-bar-row': 'chest-row', rdl: 'nope', '<x>': 'chest-row' } });
+  assert.deepEqual(s.swaps, { 't-bar-row': 'chest-row' });
+  const plain = stats([sess('2026-11-17', { 't-bar-row': [set(60, 10)] })], '2026-11-17').FUE;
+  const swapped = stats([sess('2026-11-17', { 'chest-row': [set(60, 10)] })], '2026-11-17').FUE;
+  assert.ok(plain > 0 && swapped > 0);
+});

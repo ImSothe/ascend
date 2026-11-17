@@ -1,5 +1,5 @@
-import { DAYS, EXERCISES, dayById, nextDayId, restReason, WEEKLY_SESSIONS } from './core/program.js';
-import { verdict, lastSetsFor, history, validSets, earnedLoadUp } from './core/progression.js';
+import { DAYS, EXERCISES, ALL_EXERCISES, planDay, optionsFor, nextDayId, restReason, WEEKLY_SESSIONS } from './core/program.js';
+import { verdict, verdictFor, lastSetsFor, history, validSets, earnedLoadUp } from './core/progression.js';
 import {
   RANKS, XP_PER_SET, XP_LOAD_UP, XP_COMPLETE, xpForLevel, progress, sessionXp, totalXp, averageSessionXp,
   isoDate, parseDate, weekStreak, stats, systemMessage,
@@ -39,6 +39,7 @@ const clock = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '
 const longDate = (iso) => parseDate(iso).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
 const persist = () => { save(state); cloud.schedule(); };
 const startFor = (e) => state.starts[e.id] ?? null;
+const dayOf = (id) => planDay(id, state.swaps);
 
 // The cloud copy is optional and never blocks the app. A merge that arrives
 // while a number is being typed must not rebuild the screen under the keyboard.
@@ -137,10 +138,10 @@ function tabBar() {
 
 // ── Mission ──────────────────────────────────────────────────────────────
 function newDraft(dayId) {
-  const day = dayById(dayId);
+  const day = dayOf(dayId);
   const sets = {};
   for (const e of day.exercises) {
-    const v = verdict(e, lastSetsFor(state.sessions, e.id), startFor(e));
+    const v = verdictFor(e, state.sessions, startFor(e));
     sets[e.id] = Array.from({ length: e.sets }, () => ({ kg: v.kg, reps: null, done: false }));
   }
   return { dayId: day.id, sets };
@@ -161,17 +162,17 @@ function missionView(p) {
   ];
 
   if (!state.draft && last?.date === t) {
-    const next = dayById(nextDayId(state.sessions));
+    const next = dayOf(nextDayId(state.sessions));
     out.push(panel('sys',
       label('Misión diaria completada'),
-      h('div', { class: 'mission-head' }, h('h1', null, dayById(last.dayId).name)),
+      h('div', { class: 'mission-head' }, h('h1', null, dayOf(last.dayId).name)),
       h('p', { class: 'dim small', style: { 'margin-top': '8px' } }, `Has ganado ${last.xp} XP hoy. Siguiente misión: ${next.name} (${next.focus.toLowerCase()}).`),
       h('button', { class: 'btn ghost', onclick: () => { state.draft = newDraft(next.id); persist(); render(); } }, 'Adelantar la siguiente misión')));
     return out;
   }
 
   if (!state.draft) state.draft = newDraft(nextDayId(state.sessions));
-  const day = dayById(state.draft.dayId);
+  const day = dayOf(state.draft.dayId);
   const locked = draftDone() > 0;
   const totalSets = day.exercises.reduce((n, e) => n + e.sets, 0);
 
@@ -208,6 +209,7 @@ const VERDICT_TEXT = {
   UP: (e, v) => ['Sube de carga', `Hoy ${kgText(v.kg)} kg. Completaste el rango en todas las series.`],
   HOLD: (e, v) => ['Mantén', `${kgText(v.kg)} kg. Objetivo: ${v.target}.`],
   ECC: (e, v) => ['Mantén', `${kgText(v.kg)} kg con bajada de 3 s. Aún no llegas a ${e.min} repeticiones.`],
+  DELOAD: (e, v) => ['Descarga', `Baja a ${kgText(v.kg)} kg: tres sesiones sin progresar. Rango completo con técnica estricta y vuelve a subir.`],
   CAL: (e, v) => ['Calibra', v.kg != null
     ? `Empieza con ${kgText(v.kg)} kg y técnica estricta.`
     : `Elige un peso para ${Math.round((e.min + e.max) / 2)} repeticiones dejando 2 en reserva.`],
@@ -215,9 +217,10 @@ const VERDICT_TEXT = {
 
 function exerciseCard(e, index, refresh) {
   const lastSets = lastSetsFor(state.sessions, e.id);
-  const v = verdict(e, lastSets, startFor(e));
+  const v = verdictFor(e, state.sessions, startFor(e));
   const [tag, text] = VERDICT_TEXT[v.state](e, v);
-  const rows = state.draft.sets[e.id];
+  // A swap made mid-mission brings an exercise the draft has no rows for yet.
+  const rows = state.draft.sets[e.id] ??= Array.from({ length: e.sets }, () => ({ kg: v.kg, reps: null, done: false }));
   const card = panel('ex');
   const body = card.firstChild;
   const trend = sparkline(history(state.sessions, e.id).slice(-8).map((x) => x.value));
@@ -229,6 +232,7 @@ function exerciseCard(e, index, refresh) {
     h('div', { class: `verdict ${v.state}` }, h('span', { class: 'tag' }, tag), h('span', null, text)),
     lastSets && h('div', { class: 'ex-last' }, trend, h('span', null, `Última: ${lastSets.map((x) => `${kgText(x.kg)}×${x.reps}`).join(' · ')}`)),
     h('p', { class: 'cue' }, e.cue),
+    swapButton(e, rows),
     restControl(e),
     h('div', { class: 'sets' }, rows.map((row, i) => setRow(e, row, i, () => { mark(); refresh(); })))]);
   mark();
@@ -275,6 +279,28 @@ function setRow(e, row, i, changed) {
   return el;
 }
 
+const VARIANT_BASE = Object.fromEntries(EXERCISES.map((b) => [b.id, optionsFor(b.id).map((v) => v.id)]));
+/** Base exercise id of whatever is planned (the exercise itself or one of its variants). */
+const baseOf = (e) => Object.keys(VARIANT_BASE).find((b) => VARIANT_BASE[b].includes(e.id));
+
+function applySwap(base, to) {
+  if (to === base) delete state.swaps[base]; else state.swaps[base] = to;
+  save(state);
+  render();
+}
+
+// Change an exercise for its next variant (machine taken, or it stopped working). Only before its first set.
+function swapButton(e, rows) {
+  const base = baseOf(e);
+  const list = optionsFor(base);
+  if (list.length < 2 || rows.some((r) => r.done)) return null;
+  const next = list[(list.findIndex((x) => x.id === e.id) + 1) % list.length];
+  return h('button', { class: 'mini', onclick: () => {
+    if (state.draft) delete state.draft.sets[e.id];
+    applySwap(base, next.id);
+  } }, `Cambiar por ${next.name}`);
+}
+
 function restControl(e) {
   const time = h('b', { class: 'num' }, '');
   const why = h('span', { class: 'why' }, '');
@@ -309,7 +335,7 @@ function doneSets() {
 }
 
 function completeMission(before) {
-  const day = dayById(state.draft.dayId);
+  const day = dayOf(state.draft.dayId);
   const sets = doneSets();
   const xp = sessionXp(day, sets);
   if (!xp.sets) return;
@@ -445,6 +471,7 @@ function statusView(p) {
     bodyPanel(),
     photosPanel(),
     startPanel(),
+    swapsPanel(),
     cloudPanel(),
     dataPanel(),
   ];
@@ -523,6 +550,7 @@ function supervisionPanel(t) {
   const items = findings.map((x) => h('li', { class: `find ${x.level}` },
     h('b', null, x.title), h('span', null, x.text),
     x.action === 'photo' && h('button', { class: 'mini', onclick: takePhoto }, 'Hacer foto'),
+    x.action === 'swap' && h('button', { class: 'mini', onclick: () => { if (state.draft && !draftDone()) state.draft = null; applySwap(x.swap.base, x.swap.to); } }, 'Cambiar ejercicio'),
     (x.action === 'weigh' || x.action === 'body') && h('button', { class: 'mini', onclick: () => { tab = 'status'; render(); document.querySelector(x.action === 'weigh' ? '#weight' : '#body')?.scrollIntoView({ block: 'start' }); } }, x.action === 'weigh' ? 'Registrar peso' : 'Completar')));
   const list = h('ul', { class: 'finds' }, items.slice(0, 3));
   const more = items.length > 3 && h('button', { class: 'link', onclick: () => { list.replaceChildren(...items); more.remove(); } }, `Ver los ${items.length} avisos`);
@@ -606,6 +634,19 @@ function photosPanel() {
     shots.length ? grid : h('p', { class: 'dim small', style: { 'margin-top': '6px' } }, 'Frente, mismo sitio, misma luz. La app te pedirá una cada 14 días.'),
     h('p', { class: 'dim small', style: { 'margin-top': '8px' } }, 'Se guardan solo en este móvil. La revisión con IA envía la primera y la última a Google cuando la pides.'),
     h('button', { class: 'btn ghost', onclick: takePhoto }, 'Nueva foto')));
+}
+
+function swapsPanel() {
+  const active = Object.entries(state.swaps);
+  if (!active.length) return null;
+  return panel('', label('Ejercicios cambiados'),
+    active.map(([base, to]) => {
+      const list = optionsFor(base);
+      const now = list.find((x) => x.id === to);
+      return h('div', { class: 'lift' },
+        h('span', { class: 'name' }, now.name, h('span', { class: 'delta' }, `en lugar de ${list[0].name}`)), h('span'),
+        h('button', { class: 'mini', onclick: () => applySwap(base, base) }, 'Volver'));
+    }));
 }
 
 const CLOUD_TEXT = {
@@ -699,7 +740,7 @@ function roadView(p) {
     }))));
 
   const lifts = [];
-  for (const e of EXERCISES) {
+  for (const e of ALL_EXERCISES) {
     const hist = history(state.sessions, e.id);
     if (!hist.length) continue;
     const lastSets = lastSetsFor(state.sessions, e.id);
@@ -729,7 +770,7 @@ function logView() {
   const t = today();
   calMonth ??= new Date(parseDate(t).getFullYear(), parseDate(t).getMonth(), 1);
   const y = calMonth.getFullYear(), m = calMonth.getMonth();
-  const byDate = new Map(state.sessions.map((x) => [x.date, `g${dayById(x.dayId).index}`]));
+  const byDate = new Map(state.sessions.map((x) => [x.date, `g${dayOf(x.dayId).index}`]));
   const lead = (new Date(y, m, 1).getDay() + 6) % 7;
   const days = new Date(y, m + 1, 0).getDate();
   const cells = ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => h('div', { class: 'dow' }, d));
@@ -750,7 +791,7 @@ function logView() {
       removeSession(state, x.id); persist(); render();
     } }, 'Eliminar');
     return h('div', { class: 'sess' },
-      h('div', { class: 'sess-top' }, h('b', null, dayById(x.dayId).name), h('span', { class: 'xp' }, `+${x.xp} XP`)),
+      h('div', { class: 'sess-top' }, h('b', null, dayOf(x.dayId).name), h('span', { class: 'xp' }, `+${x.xp} XP`)),
       h('div', { class: 'meta' }, `${longDate(x.date)} · ${all.length} series · ${Math.round(volume).toLocaleString('es-ES')} kg movidos`),
       del);
   });

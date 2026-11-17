@@ -1,6 +1,8 @@
 // Local state: shape, sanitising, persistence and the mutations that the cloud
 // copy needs to track. The storage key is prefixed because every GitHub Pages
 // app of the same account shares one origin.
+import { VARIANTS } from './program.js';
+
 const KEY = 'ascend.v1';
 
 export const REST_MIN = 30;
@@ -19,6 +21,7 @@ export function emptyState() {
     starts: {},        // exercise id -> starting load in kg
     profileAt: 0,      // last edit of profile, weights, rest and starts (they travel together)
     dirty: { sessions: [], profile: false },   // what the cloud copy has not seen yet
+    swaps: {},         // base exercise id -> the variant in use (device only until the rules allow it)
     photos: [],        // progress photos on this device: { id, date }; the images live in IndexedDB
     draft: null,
   };
@@ -107,6 +110,11 @@ export function sanitize(raw) {
   }
   if (Array.isArray(raw.dirty?.sessions)) base.dirty.sessions = [...new Set(raw.dirty.sessions.filter((id) => typeof id === 'string' && ID.test(id)))];
   base.dirty.profile = raw.dirty?.profile === true;
+  if (raw.swaps && typeof raw.swaps === 'object') {
+    for (const [from, to] of Object.entries(raw.swaps)) {
+      if (typeof to === 'string' && VARIANTS[from]?.some((v) => v.id === to)) base.swaps[from] = to;
+    }
+  }
   for (const p of Array.isArray(raw.photos) ? raw.photos.slice(-500) : []) {
     if (p && typeof p.id === 'string' && ID.test(p.id) && isDate(p.date)) base.photos.push({ id: p.id, date: p.date });
   }
