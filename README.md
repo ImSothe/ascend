@@ -91,10 +91,11 @@ npm run test:e2e     # the app in Chromium at a phone viewport (Playwright)
 
 Three layers, all run by CI on every push:
 
-- **Unit** (`tests/*.test.js`, 42): programme, double progression, XP and
+- **Unit** (`tests/*.test.js`, 43): programme, double progression, XP and
   ranks, streaks, stats, the supervision rules, the merge of two devices, the
   sync module against a fake Firestore, input sanitising, the AI answer parser,
-  and a check that the fields the app sends match the fields the rules allow.
+  a check that the fields the app sends match the fields the rules allow, and
+  the sync resuming when the connection returns after an offline launch.
 - **Rules** (`tests/rules`, 7): `firestore.rules` in the Firestore emulator
   with documents built by the app's own functions: the owner can read and write,
   nobody else can, nothing is deleted, malformed documents and unknown paths are

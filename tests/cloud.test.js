@@ -97,3 +97,29 @@ test('documents only carry the fields that firestore.rules allows', () => {
   for (const k of Object.keys(profileDoc(state))) assert.ok(allowed('validProfile').has(k), k);
   assert.doesNotMatch(rules, /allow[^;]*:\s*if\s+true/);
 });
+
+test('signed in before but offline at launch: the sync starts when the connection returns', async () => {
+  const backend = fakeBackend();
+  const mem = new Map([['ascend.cloud', JSON.stringify({ on: true })]]);
+  let net = false;
+  const dev = { state: emptyState() };
+  addSession(dev.state, { date: '2026-11-17', dayId: 'D1', sets: {}, xp: 10 }, 1000);
+  const cloud = createCloud({
+    getState: () => dev.state,
+    replaceState: (next) => { dev.state = sanitize(JSON.parse(JSON.stringify(next))); },
+    patchState: (fn) => fn(dev.state),
+    loadSdk: async () => { if (!net) throw new Error('offline'); return backend.sdkFor('u1'); },
+    config: { apiKey: 'k' },
+    storage: { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, v) },
+    online: () => net,
+  });
+  const settle = async () => { for (let i = 0; i < 20; i++) await new Promise((r) => setImmediate(r)); };
+  await settle();
+  assert.equal(cloud.status, 'offline');
+  assert.equal(backend.docs.size, 0);
+  net = true;
+  cloud.wake();
+  await settle();
+  assert.equal(cloud.status, 'synced');
+  assert.equal(backend.docs.size, 1);
+});

@@ -769,6 +769,7 @@ function logView() {
 
 render();
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { drawRest(); cloud.wake(); } });
+window.addEventListener('online', () => cloud.wake());
 
 const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 if ('serviceWorker' in navigator && !local) navigator.serviceWorker.register('sw.js').catch(() => {});

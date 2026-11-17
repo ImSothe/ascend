@@ -37,7 +37,7 @@ export function createCloud({ getState, replaceState, patchState, loadSdk = () =
 
   function prepare() {
     if (status === 'unconfigured') return Promise.reject(new Error('unconfigured'));
-    if (status === 'off') set('loading');
+    if (!sdk && status !== 'loading') set('loading');
     sdkPromise ||= loadSdk().then((m) => {
       sdk = m;
       app = m.initializeApp(config);
@@ -45,7 +45,12 @@ export function createCloud({ getState, replaceState, patchState, loadSdk = () =
       db = m.getFirestore(app);
       m.onAuthStateChanged(auth, onAuth);
       return m;
-    }).catch((e) => { sdkPromise = null; set('error', 'No se pudo cargar el inicio de sesión.'); throw e; });
+    }).catch((e) => {
+      sdkPromise = null;
+      // Offline at the gym is normal: wake() retries when the connection or the app comes back.
+      if (online()) set('error', 'No se pudo cargar el inicio de sesión.'); else set('offline');
+      throw e;
+    });
     return sdkPromise;
   }
 
@@ -144,8 +149,9 @@ export function createCloud({ getState, replaceState, patchState, loadSdk = () =
     timer = setTimeout(sync, PUSH_DELAY_MS);
   }
 
-  /** Call when the app comes back to the foreground. */
+  /** Call when the app comes back to the foreground or the connection returns. */
   function wake() {
+    if (!sdk) { if (readMeta().on) prepare().catch(() => {}); return; }
     if (user && now() - lastSyncAt > MIN_GAP_MS) sync();
   }
 
