@@ -1,0 +1,13 @@
+{
+  "name": "ascend-e2e-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Drives the real app in Chromium at a phone viewport. Tooling only: nothing here ships with the app.",
+  "scripts": {
+    "test": "node --test --test-concurrency=1 *.spec.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
+  }
+}

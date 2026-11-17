@@ -6,7 +6,9 @@
   "description": "Gym progression PWA: every session is a mission, every logged set is experience.",
   "scripts": {
     "test": "node --test",
-    "dev": "node tools/dev_server.mjs 8791"
+    "dev": "node tools/dev_server.mjs 8791",
+    "test:rules": "npm --prefix tests/rules test",
+    "test:e2e": "npm --prefix tests/e2e test"
   },
   "license": "SEE LICENSE IN LICENSE.md"
 }

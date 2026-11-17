@@ -81,9 +81,32 @@ read it.
 ## Run it
 
 ```
-npm run dev      # http://localhost:8791/
-npm test         # node --test, no dependencies
+npm run dev          # http://localhost:8791/
+npm test             # unit tests, node --test, no dependencies
+npm run test:rules   # firestore.rules in the real Firestore emulator (needs Java)
+npm run test:e2e     # the app in Chromium at a phone viewport (Playwright)
 ```
+
+## Tests
+
+Three layers, all run by CI on every push:
+
+- **Unit** (`tests/*.test.js`, 42): programme, double progression, XP and
+  ranks, streaks, stats, the supervision rules, the merge of two devices, the
+  sync module against a fake Firestore, input sanitising, the AI answer parser,
+  and a check that the fields the app sends match the fields the rules allow.
+- **Rules** (`tests/rules`, 7): `firestore.rules` in the Firestore emulator
+  with documents built by the app's own functions: the owner can read and write,
+  nobody else can, nothing is deleted, malformed documents and unknown paths are
+  refused.
+- **End to end** (`tests/e2e`, 12): the real app in Chromium at 390×844,
+  driven by taps and typing: welcome screen, starting point, a full mission with
+  its XP and load increases, rest timer, progress photo, reload mid-mission,
+  deleting a session, importing a backup, erasing everything, and no script
+  errors or CSP violations.
+
+Not covered by automated tests: a real Google sign-in and the live AI call
+(they need a real account; both were checked by hand).
 
 ## Layout
 
@@ -97,7 +120,7 @@ app/core/        pure logic, covered by tests
 app/data/        Firebase configuration and the sync module
 app/app.js       interface
 app/vendor/      Firebase web SDK, vendored (see README.txt there)
-tests/           node:test suite
+tests/           unit tests; tests/rules emulator tests; tests/e2e browser tests
 ```
 
 ## Status
