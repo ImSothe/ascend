@@ -19,8 +19,11 @@ today's load goes up or stays, and turns consistency into something visible.
 
 ## What it does
 
-- **Mission**: the next session of a 4-day upper/lower split, with sets, rep
-  range and reps in reserve for every exercise.
+- **Mission**: the next session of a 4-day split with two muscle groups per
+  day (chest + triceps, back + biceps, legs + abs, shoulders + hamstrings),
+  with sets, rep range and reps in reserve for every exercise.
+- **Starting point**: a starting rank and a starting load per exercise, set in
+  the app and used until the first real record.
 - **Load protocol**: double progression. If every set reaches the top of the
   rep range, the load goes up by the smallest increment next time. Inside the
   range the target is one more rep. Below the range the load stays and the

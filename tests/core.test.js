@@ -9,7 +9,7 @@ import { sanitize, emptyState, load, save } from '../app/core/store.js';
 
 const STARTS = { 'lat-pulldown': 70, 'cable-row': 60, 'incline-db-press': 22 };
 
-const pulldown = dayById('TA').exercises.find((e) => e.id === 'lat-pulldown'); // 3 x 8-12, +5 kg
+const pulldown = dayById('D2').exercises.find((e) => e.id === 'lat-pulldown'); // 3 x 8-12, +5 kg
 const set = (kg, reps) => ({ kg, reps, done: true });
 
 test('programme: unique ids and sane ranges', () => {
@@ -18,7 +18,10 @@ test('programme: unique ids and sane ranges', () => {
     assert.equal(new Set(ids).size, ids.length, d.id);
   }
   assert.equal(new Set(EXERCISES.map((e) => e.id)).size, EXERCISES.length);
-  assert.ok(EXERCISES.length < DAYS.flatMap((d) => d.exercises).length, 'shared leg exercises are listed once');
+  assert.equal(EXERCISES.length, DAYS.flatMap((d) => d.exercises).length, 'no exercise is repeated across days');
+  for (const d of DAYS) assert.equal(d.groups.length, 2, d.id);
+  for (const e of EXERCISES) assert.ok(['upper', 'lower', 'core'].includes(e.area), e.id);
+  assert.ok(EXERCISES.filter((e) => e.area === 'lower').length >= 8, 'legs get two days of work');
   for (const e of DAYS.flatMap((d) => d.exercises)) {
     assert.ok(e.min < e.max && e.sets >= 2 && e.rest >= 60, e.id);
   }
@@ -27,9 +30,9 @@ test('programme: unique ids and sane ranges', () => {
 });
 
 test('rotation follows the last session', () => {
-  assert.equal(nextDayId([]), 'TA');
-  assert.equal(nextDayId([{ dayId: 'TA' }]), 'PA');
-  assert.equal(nextDayId([{ dayId: 'PB' }]), 'TA');
+  assert.equal(nextDayId([]), 'D1');
+  assert.equal(nextDayId([{ dayId: 'D1' }]), 'D2');
+  assert.equal(nextDayId([{ dayId: 'D4' }]), 'D1');
 });
 
 test('verdict: no history calibrates from the starting weight', () => {

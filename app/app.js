@@ -45,7 +45,7 @@ const cloud = createCloud({
     next.draft = state.draft;
     state = next;
     save(state);
-    if (changed && !document.activeElement?.closest?.('.set, .field')) render();
+    if (changed && !document.activeElement?.closest?.('.set, .field, .start-row')) render();
   },
   patchState: (fn) => { fn(state); save(state); },
 });
@@ -162,7 +162,7 @@ function missionView(p) {
     h('button', {
       class: 'chip', 'aria-pressed': String(d.id === day.id), disabled: locked && d.id !== day.id,
       onclick: () => { if (d.id !== day.id) { state.draft = newDraft(d.id); persist(); render(); } },
-    }, d.name)));
+    }, d.groups.map((g) => h('span', null, g)))));
 
   out.push(chips, panel('sys',
     label('Misión diaria'),
@@ -414,9 +414,45 @@ function statusView(p) {
         : h('p', { class: 'dim small', style: { 'margin-top': '6px' } }, 'Pésate una vez por semana, en ayunas, el mismo día.'),
       weights.length > 1 && h('div', { class: 'trend' }, sparkline(weights.slice(-20).map((w) => w.kg))),
       h('div', { class: 'field' }, wInput, h('button', { class: 'btn', onclick: logWeight }, 'Registrar'))),
+    startPanel(),
     cloudPanel(),
     dataPanel(),
   ];
+}
+
+// Where the person starts: a rank (two years of training are not level 1) and
+// the load for each exercise until the first session records a real one.
+function startPanel() {
+  const select = h('select', {
+    class: 'sel', 'aria-label': 'Rango de partida',
+    onchange: () => { state.profile.startXp = Number(select.value); touchProfile(state); persist(); render(); },
+  }, RANKS.slice(0, 3).map((r) => h('option', { value: String(xpForLevel(r.min)), selected: state.profile.startXp === xpForLevel(r.min) }, `${r.name} · ${r.title}`)));
+
+  const filled = EXERCISES.filter((e) => state.starts[e.id] != null).length;
+  const list = h('div', { class: 'starts', hidden: true }, DAYS.map((d) => [
+    h('div', { class: 'label', style: { 'margin-top': '14px' } }, d.name),
+    d.exercises.map((e) => {
+      const input = h('input', { type: 'text', inputmode: 'decimal', placeholder: 'kg', autocomplete: 'off', 'aria-label': `${e.name}, carga de partida`, value: state.starts[e.id] != null ? kgText(state.starts[e.id]) : '' });
+      input.addEventListener('change', () => {
+        const k = parseKg(input.value);
+        if (k == null) delete state.starts[e.id];
+        else if (Number.isFinite(k) && k >= 0 && k < 1000) state.starts[e.id] = k;
+        else { input.value = ''; return; }
+        // Today's mission picks the new load up in the sets that are still empty.
+        for (const row of state.draft?.sets?.[e.id] ?? []) if (!row.done && row.kg == null) row.kg = state.starts[e.id] ?? null;
+        touchProfile(state); persist();
+        count.textContent = `${EXERCISES.filter((x) => state.starts[x.id] != null).length}/${EXERCISES.length}`;
+      });
+      return h('label', { class: 'start-row' }, h('span', null, e.name, h('small', null, e.unit)), input);
+    }),
+  ]));
+  const count = h('b', null, `${filled}/${EXERCISES.length}`);
+  const toggle = h('button', { class: 'btn ghost', onclick: () => { list.hidden = !list.hidden; toggle.textContent = list.hidden ? 'Editar cargas de partida' : 'Cerrar'; } }, 'Editar cargas de partida');
+  return panel('', label('Punto de partida'),
+    h('div', { class: 'field' }, select),
+    h('div', { class: 'mission-meta' }, h('span', null, 'Cargas de partida ', count)),
+    h('p', { class: 'dim small', style: { 'margin-top': '6px' } }, 'El peso con el que harías el rango de repeticiones dejando 1-2 en reserva, no tu máximo. Solo se usa hasta que registres ese ejercicio.'),
+    toggle, list);
 }
 
 const CLOUD_TEXT = {
@@ -537,7 +573,7 @@ function logView() {
   const t = today();
   calMonth ??= new Date(parseDate(t).getFullYear(), parseDate(t).getMonth(), 1);
   const y = calMonth.getFullYear(), m = calMonth.getMonth();
-  const byDate = new Map(state.sessions.map((x) => [x.date, dayById(x.dayId).group]));
+  const byDate = new Map(state.sessions.map((x) => [x.date, `g${dayById(x.dayId).index}`]));
   const lead = (new Date(y, m, 1).getDay() + 6) % 7;
   const days = new Date(y, m + 1, 0).getDate();
   const cells = ['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => h('div', { class: 'dow' }, d));
@@ -570,9 +606,7 @@ function logView() {
         h('div', { class: 'display' }, title),
         h('button', { 'aria-label': 'Mes siguiente', onclick: () => move(1) }, '›')),
       h('div', { class: 'cal' }, cells),
-      h('div', { class: 'legend' },
-        h('span', null, h('i', { style: { '--c': 'var(--sys)' } }), 'Torso'),
-        h('span', null, h('i', { style: { '--c': 'var(--ok)' } }), 'Pierna'))),
+      h('div', { class: 'legend' }, DAYS.map((d) => h('span', null, h('i', { class: `g${d.index}` }), d.name)))),
     panel('', label('Misiones registradas'), list.length ? list : h('p', { class: 'empty' }, 'Todavía no hay misiones. La primera calibra tus cargas.')),
   ];
 }

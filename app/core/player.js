@@ -1,5 +1,5 @@
 // Experience, levels, ranks, streak and the four stat bars. Pure functions.
-import { DAYS, EXERCISES, WEEKLY_SESSIONS, WEEKLY_SETS } from './program.js';
+import { EXERCISES, WEEKLY_SESSIONS, WEEKLY_SETS } from './program.js';
 import { validSets, earnedLoadUp, bestE1rm, e1rm } from './progression.js';
 
 export const XP_PER_SET = 10;
@@ -116,12 +116,11 @@ export function weekStreak(sessions, today, target = WEEKLY_SESSIONS) {
 // ── Stats ────────────────────────────────────────────────────────────────
 const clamp = (n) => Math.max(0, Math.min(100, Math.round(n)));
 
-function strength(sessions, group, starts) {
+function strength(sessions, area, starts) {
   const scores = [];
-  const ids = new Set(DAYS.filter((d) => d.group === group).flatMap((d) => d.exercises.map((e) => e.id)));
   {
     for (const exercise of EXERCISES) {
-      if (!ids.has(exercise.id) || !exercise.ref) continue;
+      if (exercise.area !== area || !exercise.ref) continue;
       let best = 0;
       for (const s of sessions) best = Math.max(best, bestE1rm(s.sets?.[exercise.id]));
       if (!best && starts[exercise.id]) best = e1rm(starts[exercise.id], exercise.min);
@@ -146,8 +145,8 @@ export function stats(sessions, today, starts = {}) {
     if (age < 28) sessions28++;
   }
   return {
-    FUE: strength(sessions, 'torso', starts),
-    AGI: strength(sessions, 'pierna', starts),
+    FUE: strength(sessions, 'upper', starts),
+    AGI: strength(sessions, 'lower', starts),
     RES: clamp((100 * sets7) / WEEKLY_SETS),
     VIT: clamp((100 * sessions28) / (WEEKLY_SESSIONS * 4)),
   };
