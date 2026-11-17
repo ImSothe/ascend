@@ -71,7 +71,6 @@ export function createAI({ cloud, siteKey = APP_CHECK_SITE_KEY, storage = global
    */
   async function run(summary, photos = [], today) {
     if (!siteKey) return { ok: false, reason: 'not-configured' };
-    if (!cloud.user) return { ok: false, reason: 'signed-out' };
     const cache = readCache();
     const used = cache.day === today ? cache.count ?? 0 : 0;
     if (used >= DAILY_LIMIT) return { ok: false, reason: 'limit' };
