@@ -218,3 +218,14 @@ test('a backup file is imported, and a broken one is refused', async () => {
 test('no script errors or CSP violations along the way', () => {
   assert.deepEqual(problems, []);
 });
+
+test('a mission saved with empty loads gets the proposed ones', async () => {
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('ascend.v1'));
+    s.draft = { dayId: 'D3', sets: { 'leg-press': [{ kg: null, reps: null, done: false }, { kg: null, reps: null, done: false }, { kg: null, reps: null, done: false }] } };
+    localStorage.setItem('ascend.v1', JSON.stringify(s));
+  });
+  await page.reload();
+  await page.locator('.hud').waitFor();
+  assert.equal(await page.locator('.ex', { hasText: 'Prensa' }).locator('.set input').first().inputValue(), '120');
+});

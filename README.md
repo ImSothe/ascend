@@ -115,7 +115,7 @@ Three layers, all run by CI on every push:
   with documents built by the app's own functions: the owner can read and write,
   nobody else can, nothing is deleted, malformed documents and unknown paths are
   refused.
-- **End to end** (`tests/e2e`, 13): the real app in Chromium at 390×844,
+- **End to end** (`tests/e2e`, 14): the real app in Chromium at 390×844,
   driven by taps and typing: welcome screen, starting point, a full mission with
   its XP and load increases, rest timer, progress photo, reload mid-mission,
   swapping an exercise mid-mission,

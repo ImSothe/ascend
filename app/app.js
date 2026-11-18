@@ -223,6 +223,8 @@ function exerciseCard(e, index, refresh) {
   const [tag, text] = VERDICT_TEXT[v.state](e, v);
   // A swap made mid-mission brings an exercise the draft has no rows for yet.
   const rows = state.draft.sets[e.id] ??= Array.from({ length: e.sets }, () => ({ kg: v.kg, reps: null, done: false }));
+  // Empty loads (a mission saved by an older version, or a cleared field) take the proposed one.
+  for (const r of rows) if (!r.done && r.kg == null) r.kg = v.kg;
   const card = panel('ex');
   const body = card.firstChild;
   const trend = sparkline(history(state.sessions, e.id).slice(-8).map((x) => x.value));
