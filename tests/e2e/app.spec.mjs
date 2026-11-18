@@ -50,10 +50,10 @@ test('starting point: rank D and a starting load reach today\'s mission', async 
   await page.getByLabel('Rango de partida').selectOption({ label: 'Rango D · Cazador en formación' });
   assert.match(await page.locator('.hud-title').innerText(), /nivel\s*5/i);
   await page.getByRole('button', { name: 'Editar cargas de partida' }).click();
-  const incline = page.getByLabel('Press inclinado con mancuernas, carga de partida');
+  const incline = page.getByLabel('Press inclinado en multipower, carga de partida');
   await incline.fill('22');
   await incline.blur();
-  assert.equal((await state()).starts['incline-db-press'], 22);
+  assert.equal((await state()).starts['incline-smith'], 22);
 });
 
 test('body data and a weigh-in are saved and clear their reminders', async () => {
@@ -76,13 +76,17 @@ test('body data and a weigh-in are saved and clear their reminders', async () =>
 test('a full mission: every set at the top of the range earns every load increase', async () => {
   assert.equal(await page.locator('.ex .set input').first().inputValue(), '22');
   // An empty set cannot be checked.
+  const loads = await page.locator('.ex .set input[inputmode=decimal]').evaluateAll((els) => els.map((x) => x.value));
+  assert.ok(loads.every((v) => v !== ''), 'every set comes with a proposed load');
   const firstSet = page.locator('.set').first();
+  await firstSet.locator('input').nth(0).fill('');
   await firstSet.locator('.check').click();
   assert.match(await firstSet.getAttribute('class'), /bad/);
+  await firstSet.locator('input').nth(0).fill('22');
 
   const sets = page.locator('.set');
   const n = await sets.count();
-  assert.equal(n, 19);
+  assert.equal(n, 17);
   for (let i = 0; i < n; i++) {
     const row = sets.nth(i);
     const kg = row.locator('input').nth(0);
@@ -93,19 +97,19 @@ test('a full mission: every set at the top of the range earns every load increas
     await row.locator('.check').click();
     if (i === 0) assert.ok(await page.locator('#rest .rest').isVisible(), 'rest timer starts on the first checked set');
   }
-  assert.match(await page.locator('.mission-meta').first().innerText(), /19\/19[\s\S]*\+500 XP/);
+  assert.match(await page.locator('.mission-meta').first().innerText(), /17\/17[\s\S]*\+450 XP/);
   await page.getByRole('button', { name: 'Completar misión' }).click();
   const dlg = page.locator('dialog#result');
   await dlg.waitFor();
   await page.waitForTimeout(1100);                          // the XP counter animates
-  assert.equal(await dlg.locator('.xp').innerText(), '+500');
-  assert.equal(await dlg.locator('li').count(), 7);         // seven "▲ next time" lines
+  assert.equal(await dlg.locator('.xp').innerText(), '+450');
+  assert.equal(await dlg.locator('li').count(), 6);         // six "▲ next time" lines
   await dlg.getByRole('button', { name: 'Continuar' }).click();
   assert.equal(await page.locator('#rest').isHidden(), true);
 
   const s = await state();
   assert.equal(s.sessions.length, 1);
-  assert.equal(s.sessions[0].xp, 500);
+  assert.equal(s.sessions[0].xp, 450);
   assert.equal(s.draft, null);
   assert.match(await page.locator('.panel.sys').last().innerText(), /Siguiente misión: Espalda \+ Bíceps/);
 });
@@ -114,8 +118,8 @@ test('the next session suggests the higher loads', async () => {
   await page.getByRole('button', { name: 'Adelantar la siguiente misión' }).click();
   await page.locator('.chip', { hasText: 'Pecho' }).click();
   const verdict = await page.locator('.verdict').first().innerText();
-  assert.match(verdict, /Sube de carga[\s\S]*24 kg/);       // 22 + 2 kg per dumbbell
-  assert.equal(await page.locator('.ex .set input').first().inputValue(), '24');
+  assert.match(verdict, /Sube de carga[\s\S]*24,5 kg/);     // 22 + the 2.5 kg step of the Smith press
+  assert.equal(await page.locator('.ex .set input').first().inputValue(), '24,5');
 });
 
 test('rest time per exercise is adjustable and remembered', async () => {
@@ -123,7 +127,7 @@ test('rest time per exercise is adjustable and remembered', async () => {
   assert.equal(await ctl.locator('b').innerText(), '3:00');
   await ctl.getByRole('button', { name: 'Quitar 15 segundos de descanso' }).click();
   assert.equal(await ctl.locator('b').innerText(), '2:45');
-  assert.equal((await state()).rest['incline-db-press'], 165);
+  assert.equal((await state()).rest['incline-smith'], 165);
 });
 
 test('a progress photo is stored on the device and clears the reminder', async () => {
@@ -145,26 +149,26 @@ test('closing the app mid-mission keeps the sets already done', async () => {
   await page.locator('.hud').waitFor();
   const again = page.locator('.set').first();
   assert.match(await again.getAttribute('class'), /done/);
-  assert.equal(await again.locator('input').nth(0).inputValue(), '24');
+  assert.equal(await again.locator('input').nth(0).inputValue(), '24,5');
   assert.equal(await again.locator('input').nth(1).inputValue(), '8');
-  assert.match(await page.locator('.mission-meta').first().innerText(), /1\/19/);
+  assert.match(await page.locator('.mission-meta').first().innerText(), /1\/17/);
   // The other days are locked while a mission is in progress.
   assert.equal(await page.locator('.chip', { hasText: 'Espalda' }).isDisabled(), true);
 });
 
 test('a busy machine: swap an exercise mid-mission and back', async () => {
-  const card = page.locator('.ex', { hasText: 'Press sentado guiado en máquina' });
-  await card.getByRole('button', { name: 'Cambiar por Press banca con mancuernas' }).click();
-  const swapped = page.locator('.ex', { hasText: 'Press banca con mancuernas' });
+  const card = page.locator('.ex', { hasText: 'Press banca con mancuernas' });
+  await card.getByRole('button', { name: 'Cambiar por Press sentado guiado en máquina' }).click();
+  const swapped = page.locator('.ex', { hasText: 'Press sentado guiado en máquina' });
   await swapped.waitFor();
   assert.equal(await swapped.locator('.set').count(), 3);
-  assert.deepEqual((await state()).swaps, { 'machine-press': 'db-bench' });
+  assert.deepEqual((await state()).swaps, { 'db-bench': 'machine-press' });
   assert.match(await page.locator('.ex .set').first().getAttribute('class'), /done/, 'sets already done are kept');
   await tabTo('Estado');
   await page.locator('.panel', { hasText: 'Ejercicios cambiados' }).getByRole('button', { name: 'Volver' }).click();
   assert.deepEqual((await state()).swaps, {});
   await tabTo('Misión');
-  await page.locator('.ex', { hasText: 'Press sentado guiado en máquina' }).waitFor();
+  await page.locator('.ex', { hasText: 'Press banca con mancuernas' }).waitFor();
 });
 
 test('the log lists the session and deletes it on a second tap', async () => {

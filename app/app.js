@@ -141,7 +141,7 @@ function newDraft(dayId) {
   const day = dayOf(dayId);
   const sets = {};
   for (const e of day.exercises) {
-    const v = verdictFor(e, state.sessions, startFor(e));
+    const v = verdictFor(e, state.sessions, startFor(e), state.starts);
     sets[e.id] = Array.from({ length: e.sets }, () => ({ kg: v.kg, reps: null, done: false }));
   }
   return { dayId: day.id, sets };
@@ -210,14 +210,16 @@ const VERDICT_TEXT = {
   HOLD: (e, v) => ['Mantén', `${kgText(v.kg)} kg. Objetivo: ${v.target}.`],
   ECC: (e, v) => ['Mantén', `${kgText(v.kg)} kg con bajada de 3 s. Aún no llegas a ${e.min} repeticiones.`],
   DELOAD: (e, v) => ['Descarga', `Baja a ${kgText(v.kg)} kg: tres sesiones sin progresar. Rango completo con técnica estricta y vuelve a subir.`],
-  CAL: (e, v) => ['Calibra', v.kg != null
-    ? `Empieza con ${kgText(v.kg)} kg y técnica estricta.`
-    : `Elige un peso para ${Math.round((e.min + e.max) / 2)} repeticiones dejando 2 en reserva.`],
+  CAL: (e, v) => ['Calibra',
+    v.source === 'start' ? `Empieza con ${kgText(v.kg)} kg y técnica estricta.`
+      : v.source === 'sibling' ? `Estimado desde tu ${v.from}: ${kgText(v.kg)} kg. Ajusta en la primera serie.`
+        : v.kg === 0 ? 'Sin lastre: anota 0 kg.'
+          : `Peso orientativo: ${kgText(v.kg)} kg. Si la primera serie sale fácil, sube; si no llegas a ${e.min}, baja. Desde la próxima sesión, la app sabrá tu peso.`],
 };
 
 function exerciseCard(e, index, refresh) {
   const lastSets = lastSetsFor(state.sessions, e.id);
-  const v = verdictFor(e, state.sessions, startFor(e));
+  const v = verdictFor(e, state.sessions, startFor(e), state.starts);
   const [tag, text] = VERDICT_TEXT[v.state](e, v);
   // A swap made mid-mission brings an exercise the draft has no rows for yet.
   const rows = state.draft.sets[e.id] ??= Array.from({ length: e.sets }, () => ({ kg: v.kg, reps: null, done: false }));
@@ -496,7 +498,12 @@ function startPanel() {
         else if (Number.isFinite(k) && k >= 0 && k < 1000) state.starts[e.id] = k;
         else { input.value = ''; return; }
         // Today's mission picks the new load up in the sets that are still empty.
-        for (const row of state.draft?.sets?.[e.id] ?? []) if (!row.done && row.kg == null) row.kg = state.starts[e.id] ?? null;
+        // Today's mission takes the new load, unless a set of that exercise is already done.
+        const rows = state.draft?.sets?.[e.id] ?? [];
+        if (!rows.some((r) => r.done)) {
+          const kg = verdictFor(e, state.sessions, state.starts[e.id] ?? null, state.starts).kg;
+          for (const row of rows) row.kg = kg;
+        }
         touchProfile(state); persist();
         count.textContent = `${EXERCISES.filter((x) => state.starts[x.id] != null).length}/${EXERCISES.length}`;
       });

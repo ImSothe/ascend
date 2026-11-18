@@ -1,5 +1,7 @@
-// Training programme: 4 days, two muscle groups per day. Legs, the weakest
-// area, get two days (quadriceps and posterior chain); forearms and abs ride
+// Training programme, block 2: 4 days, two muscle groups per day. After a
+// year on the same upper-body lifts, the main exercises change to variants of
+// the same movements (a new stimulus); the block-1 lifts stay as one-tap
+// alternatives. Legs, the weakest area, get two days; forearms and abs ride
 // along as finishers. Starting loads are personal: they live in the person's
 // data, not here. `ref` is the load used to scale the stat bars.
 
@@ -15,24 +17,23 @@ export const DAYS = [
   {
     id: 'D1', groups: ['Pecho', 'Tríceps'], focus: 'Press inclinado primero, con la fuerza intacta',
     exercises: [
-      up('incline-db-press', 'Press inclinado con mancuernas', 3, 6, 10, '1-2', 2, 45, 180, 'kg por mancuerna', 'Banco a 30°. Baja en 2-3 s hasta estirar el pecho, sin rebote.'),
-      up('machine-press', 'Press sentado guiado en máquina', 3, 8, 12, '1-2', 5, 110, 150, 'kg', 'Asiento a la altura que deje los agarres en mitad del pecho.'),
-      up('cable-fly', 'Aperturas en polea alta', 3, 12, 15, '0-1', 2.5, 60, 90, 'kg', 'Estiramiento profundo, cierra abrazando. Peso que permita 12 limpias.'),
+      up('incline-smith', 'Press inclinado en multipower', 3, 6, 10, '1-2', 2.5, 100, 180, 'kg', 'Banco a 30°. La barra baja a la parte alta del pecho, sin rebote.'),
+      up('db-bench', 'Press banca con mancuernas', 3, 8, 12, '1-2', 2, 45, 150, 'kg por mancuerna', 'Escápulas atrás y abajo. Baja hasta estirar el pecho.'),
+      up('low-cable-fly', 'Aperturas en polea baja', 3, 12, 15, '0-1', 2.5, 50, 90, 'kg', 'De abajo arriba hasta la altura de los ojos. Enfoca el pecho alto.'),
       up('pec-deck', 'Peck deck', 2, 12, 15, '0-1', 5, 90, 75, 'kg', 'Pausa de 1 s con los brazos cerrados. Hombros atrás.'),
-      up('overhead-ext', 'Jalón con cuerda tras nuca', 3, 10, 15, '0-1', 2.5, 45, 90, 'kg', 'Estira el tríceps detrás de la cabeza en cada repetición.'),
-      up('katana-ext', 'Tríceps katana con codo apoyado', 3, 10, 15, '0-1', 2.5, 40, 90, 'kg', 'Codo fijo. Estira el tríceps al máximo en cada repetición.'),
-      up('pushdown', 'Extensión de tríceps en polea', 2, 10, 15, '0-1', 2.5, 50, 75, 'kg', 'Codos pegados al costado. Bloquea abajo 1 s.'),
+      up('ez-skull', 'Press francés con barra Z', 3, 10, 15, '0-1', 2.5, 40, 90, 'kg', 'Codos fijos apuntando arriba. Baja detrás de la cabeza.'),
+      up('pushdown', 'Extensión de tríceps en polea', 3, 10, 15, '0-1', 2.5, 50, 75, 'kg', 'Codos pegados al costado. Bloquea abajo 1 s.'),
     ],
   },
   {
     id: 'D2', groups: ['Espalda', 'Bíceps'], focus: 'Dorsal, grosor y antebrazo al final',
     exercises: [
-      up('lat-pulldown', 'Jalón al pecho', 3, 8, 12, '1-2', 5, 110, 150, 'kg', 'Sin balanceo: si el torso se mueve, sobra peso. Pecho hacia la barra.'),
-      up('t-bar-row', 'Remo en T', 3, 8, 12, '1-2', 5, 100, 150, 'kg', 'Torso quieto. Si tiras con la lumbar, sobra peso.'),
-      up('cable-row', 'Remo gironda', 3, 8, 12, '1-2', 5, 110, 150, 'kg', 'Pausa de 1 s con los codos atrás. Estira la espalda al volver.'),
-      up('single-pulldown', 'Jalón unilateral en polea alta', 2, 10, 12, '1-2', 2.5, 50, 60, 'kg por brazo', 'Codo hacia la cadera. Descansa al terminar los dos brazos.'),
-      up('bayesian-curl', 'Curl bayesian', 3, 10, 15, '0-1', 2.5, 50, 90, 'kg', 'Codo detrás del cuerpo, estiramiento completo abajo.'),
-      up('cable-hammer', 'Martillo en polea unilateral', 3, 10, 15, '0-1', 2.5, 30, 60, 'kg por brazo', 'Codo pegado al costado, sin balanceo.'),
+      up('neutral-pulldown', 'Jalón con agarre neutro', 3, 8, 12, '1-2', 5, 110, 150, 'kg', 'Codos hacia las caderas. Pausa abajo, sin balanceo.'),
+      up('chest-row', 'Remo con apoyo en el pecho', 3, 8, 12, '1-2', 5, 100, 150, 'kg', 'Pecho pegado al apoyo: ni un balanceo.'),
+      up('db-row', 'Remo con mancuerna', 3, 8, 12, '1-2', 2, 50, 120, 'kg por mancuerna', 'Rodilla y mano en el banco. Lleva el codo a la cadera.'),
+      up('cable-pullover', 'Pullover en polea alta', 2, 12, 15, '0-1', 2.5, 40, 75, 'kg', 'Brazos casi rectos, lleva la barra a los muslos con el dorsal.'),
+      up('preacher-curl', 'Curl en banco Scott', 3, 10, 15, '0-1', 2.5, 40, 90, 'kg', 'Brazo apoyado entero. Estira abajo sin rebotar.'),
+      up('db-hammer', 'Curl martillo con mancuernas', 3, 10, 15, '0-1', 2, 25, 60, 'kg por mancuerna', 'Codos pegados, sin balanceo. Alterna brazos.'),
       up('wrist-curl', 'Curl de muñeca en polea', 2, 12, 20, '0-1', 2.5, 40, 60, 'kg', 'Antebrazo. Apoya los antebrazos, deja rodar la barra hasta los dedos y cierra.'),
       up('reverse-curl', 'Curl inverso en polea', 2, 10, 15, '0-1', 2.5, 45, 60, 'kg', 'Antebrazo. Agarre prono, muñecas rectas, codos pegados.'),
     ],
@@ -52,9 +53,9 @@ export const DAYS = [
   {
     id: 'D4', groups: ['Hombro', 'Femoral'], focus: 'Deltoides completo y cadena posterior',
     exercises: [
-      up('ohp', 'Press militar', 3, 8, 12, '1-2', 2, 40, 150, 'kg', 'Recorrido completo, sin arquear la lumbar.'),
-      up('cable-lateral', 'Laterales en polea', 4, 12, 20, '0-1', 1.25, 40, 75, 'kg', 'Polea a la altura de la muñeca. Sube con el codo, no con la mano.'),
-      up('rear-delt-cable', 'Pájaro en polea', 3, 12, 20, '0-1', 1.25, 35, 60, 'kg por brazo', 'Brazo casi recto, abre hasta la línea del hombro.'),
+      up('machine-ohp', 'Press de hombro en máquina', 3, 8, 12, '1-2', 5, 80, 150, 'kg', 'Recorrido completo, espalda pegada al respaldo.'),
+      up('db-lateral', 'Elevación lateral con mancuernas', 4, 12, 20, '0-1', 1, 18, 75, 'kg por mancuerna', 'Torso un poco inclinado. Sube con el codo, sin impulso.'),
+      up('reverse-pec-deck', 'Pájaro en máquina', 3, 12, 20, '0-1', 5, 70, 60, 'kg', 'Agarre neutro, abre hasta la línea del hombro. Pausa atrás.'),
       low('rdl', 'Peso muerto rumano', 3, 8, 12, '2', 5, 140, 150, 'kg', 'Cadera atrás, espalda neutra, barra pegada a las piernas.'),
       low('hip-thrust', 'Hip thrust', 3, 8, 12, '1-2', 5, 180, 150, 'kg', 'Barbilla al pecho, pausa de 1 s arriba.'),
       low('leg-curl', 'Curl femoral', 3, 10, 15, '0-1', 5, 90, 90, 'kg', 'Cadera pegada al asiento. Bajada en 3 s.'),
@@ -63,30 +64,35 @@ export const DAYS = [
   },
 ].map((d, i) => ({ ...d, index: i, name: d.groups.join(' + ') }));
 
-// Alternatives for the main lifts: same muscle and movement, a new stimulus
-// when the original stops progressing (or the machine is taken).
+// Alternatives for the main lifts: the block-1 exercises and other variants of
+// the same movement. A plateau, a busy machine or a preference swaps them.
 export const VARIANTS = {
-  'incline-db-press': [
+  'incline-smith': [
+    up('incline-db-press', 'Press inclinado con mancuernas', 3, 6, 10, '1-2', 2, 45, 180, 'kg por mancuerna', 'Banco a 30°. Baja en 2-3 s hasta estirar el pecho, sin rebote.'),
     up('incline-machine-press', 'Press inclinado en máquina', 3, 6, 10, '1-2', 5, 100, 180, 'kg', 'Respaldo inclinado. Baja controlado hasta estirar el pecho.'),
-    up('incline-smith', 'Press inclinado en multipower', 3, 6, 10, '1-2', 2.5, 100, 180, 'kg', 'Banco a 30°. La barra baja a la parte alta del pecho.'),
   ],
-  'machine-press': [up('db-bench', 'Press banca con mancuernas', 3, 8, 12, '1-2', 2, 45, 150, 'kg por mancuerna', 'Escápulas atrás y abajo. Baja hasta estirar el pecho.')],
-  'cable-fly': [up('low-cable-fly', 'Aperturas en polea baja', 3, 12, 15, '0-1', 2.5, 50, 90, 'kg', 'De abajo arriba hasta la altura de los ojos. Enfoca el pecho alto.')],
-  'lat-pulldown': [
+  'db-bench': [up('machine-press', 'Press sentado guiado en máquina', 3, 8, 12, '1-2', 5, 110, 150, 'kg', 'Asiento a la altura que deje los agarres en mitad del pecho.')],
+  'low-cable-fly': [up('cable-fly', 'Aperturas en polea alta', 3, 12, 15, '0-1', 2.5, 60, 90, 'kg', 'Estiramiento profundo, cierra abrazando.')],
+  'ez-skull': [up('overhead-ext', 'Jalón con cuerda tras nuca', 3, 10, 15, '0-1', 2.5, 45, 90, 'kg', 'Estira el tríceps detrás de la cabeza en cada repetición.')],
+  pushdown: [up('katana-ext', 'Tríceps katana con codo apoyado', 3, 10, 15, '0-1', 2.5, 40, 90, 'kg', 'Codo fijo. Estira el tríceps al máximo en cada repetición.')],
+  'neutral-pulldown': [
+    up('lat-pulldown', 'Jalón al pecho', 3, 8, 12, '1-2', 5, 110, 150, 'kg', 'Sin balanceo: si el torso se mueve, sobra peso. Pecho hacia la barra.'),
     up('wide-pulldown', 'Jalón agarre ancho', 3, 8, 12, '1-2', 5, 110, 150, 'kg', 'Agarre algo más ancho que los hombros. Pecho a la barra.'),
-    up('neutral-pulldown', 'Jalón con agarre neutro', 3, 8, 12, '1-2', 5, 110, 150, 'kg', 'Codos hacia las caderas. Pausa abajo.'),
   ],
-  't-bar-row': [
-    up('chest-row', 'Remo con apoyo en el pecho', 3, 8, 12, '1-2', 5, 100, 150, 'kg', 'Pecho pegado al apoyo: ni un balanceo.'),
-    up('db-row', 'Remo con mancuerna', 3, 8, 12, '1-2', 2, 50, 120, 'kg por mancuerna', 'Rodilla y mano en el banco. Lleva el codo a la cadera.'),
+  'chest-row': [up('t-bar-row', 'Remo en T', 3, 8, 12, '1-2', 5, 100, 150, 'kg', 'Torso quieto. Si tiras con la lumbar, sobra peso.')],
+  'db-row': [
+    up('cable-row', 'Remo gironda', 3, 8, 12, '1-2', 5, 110, 150, 'kg', 'Pausa de 1 s con los codos atrás. Estira la espalda al volver.'),
+    up('machine-row', 'Remo sentado en máquina', 3, 8, 12, '1-2', 5, 100, 150, 'kg', 'Pausa de 1 s atrás. Estira la espalda al volver.'),
   ],
-  'cable-row': [up('machine-row', 'Remo sentado en máquina', 3, 8, 12, '1-2', 5, 100, 150, 'kg', 'Pausa de 1 s atrás. Estira la espalda al volver.')],
-  ohp: [
-    up('machine-ohp', 'Press de hombro en máquina', 3, 8, 12, '1-2', 5, 80, 150, 'kg', 'Recorrido completo, espalda pegada al respaldo.'),
+  'cable-pullover': [up('single-pulldown', 'Jalón unilateral en polea alta', 2, 10, 12, '1-2', 2.5, 50, 60, 'kg por brazo', 'Codo hacia la cadera. Descansa al terminar los dos brazos.')],
+  'preacher-curl': [up('bayesian-curl', 'Curl bayesian', 3, 10, 15, '0-1', 2.5, 50, 90, 'kg', 'Codo detrás del cuerpo, estiramiento completo abajo.')],
+  'db-hammer': [up('cable-hammer', 'Martillo en polea unilateral', 3, 10, 15, '0-1', 2.5, 30, 60, 'kg por brazo', 'Codo pegado al costado, sin balanceo.')],
+  'machine-ohp': [
+    up('ohp', 'Press militar', 3, 8, 12, '1-2', 2, 40, 150, 'kg', 'Recorrido completo, sin arquear la lumbar.'),
     up('arnold-press', 'Press Arnold', 3, 8, 12, '1-2', 2, 30, 120, 'kg por mancuerna', 'Gira las palmas mientras subes. Sin prisa.'),
   ],
-  'bayesian-curl': [up('preacher-curl', 'Curl en banco Scott', 3, 10, 15, '0-1', 2.5, 40, 90, 'kg', 'Brazo apoyado entero. Estira abajo sin rebotar.')],
-  'overhead-ext': [up('ez-skull', 'Press francés con barra Z', 3, 10, 15, '0-1', 2.5, 40, 90, 'kg', 'Codos fijos apuntando arriba. Baja detrás de la cabeza.')],
+  'db-lateral': [up('cable-lateral', 'Laterales en polea', 4, 12, 20, '0-1', 1.25, 40, 75, 'kg', 'Polea a la altura de la muñeca. Sube con el codo, no con la mano.')],
+  'reverse-pec-deck': [up('rear-delt-cable', 'Pájaro en polea', 3, 12, 20, '0-1', 1.25, 35, 60, 'kg por brazo', 'Brazo casi recto, abre hasta la línea del hombro.')],
   'leg-press': [
     low('hack-squat', 'Sentadilla hack', 3, 8, 12, '2', 5, 180, 180, 'kg', 'Profundidad completa. Baja en 3 s.'),
     low('smith-squat', 'Sentadilla en multipower', 3, 8, 12, '2', 5, 140, 180, 'kg', 'Pies algo adelantados. Baja hasta paralelo o más.'),

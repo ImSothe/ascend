@@ -1,6 +1,6 @@
 // Network first, cache as the offline fallback. Only touches its own caches:
 // every GitHub Pages app of the account shares this origin.
-const CACHE = 'ascend-v7';
+const CACHE = 'ascend-v8';
 const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'core/program.js', 'core/progression.js', 'core/player.js', 'core/store.js', 'core/merge.js', 'data/cloud.js', 'data/ai.js', 'data/photos.js', 'core/coach.js', 'data/firebase-config.js', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png'];
 
 self.addEventListener('install', (event) => {

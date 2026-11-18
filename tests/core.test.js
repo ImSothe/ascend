@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DAYS, EXERCISES, WEEKLY_SETS, nextDayId, dayById, restReason } from '../app/core/program.js';
+import { DAYS, EXERCISES, ALL_EXERCISES, WEEKLY_SETS, nextDayId, dayById, restReason } from '../app/core/program.js';
 import { verdict, earnedLoadUp, e1rm, lastSetsFor, history, validSets } from '../app/core/progression.js';
 import {
   levelFromXp, xpForLevel, rankForLevel, progress, sessionXp, weekStreak, weekStart, stats, systemMessage, RANKS,
@@ -9,7 +9,7 @@ import { sanitize, emptyState, load, save } from '../app/core/store.js';
 
 const STARTS = { 'lat-pulldown': 70, 'cable-row': 60, 'incline-db-press': 22 };
 
-const pulldown = dayById('D2').exercises.find((e) => e.id === 'lat-pulldown'); // 3 x 8-12, +5 kg
+const pulldown = ALL_EXERCISES.find((e) => e.id === 'lat-pulldown'); // 3 x 8-12, +5 kg
 const set = (kg, reps) => ({ kg, reps, done: true });
 
 test('programme: unique ids and sane ranges', () => {
@@ -36,8 +36,8 @@ test('rotation follows the last session', () => {
 });
 
 test('verdict: no history calibrates from the starting weight', () => {
-  assert.deepEqual(verdict(pulldown, null, 70), { state: 'CAL', kg: 70, target: '8-12' });
-  assert.equal(verdict(pulldown, null).kg, null);
+  assert.deepEqual(verdict(pulldown, null, 70), { state: 'CAL', kg: 70, target: '8-12', source: 'start' });
+  assert.deepEqual(verdict(pulldown, null), { state: 'CAL', kg: 40, target: '8-12', source: 'guess' });   // 40 % of the 110 kg reference
 });
 
 test('verdict: top of the range in every set raises the load', () => {

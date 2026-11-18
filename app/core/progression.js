@@ -1,5 +1,6 @@
 // Double progression: stay at a load until every set reaches the top of the
 // rep range, then add the smallest plate. Pure functions, no I/O.
+import { ALL_EXERCISES, EXERCISES, optionsFor } from './program.js';
 
 /** Sets that count: a positive number of reps and a non-negative load. */
 export function validSets(sets) {
@@ -27,11 +28,13 @@ export function earnedLoadUp(exercise, sets) {
 /**
  * What to do today, given the last time this exercise was trained.
  * `start` is the person's own starting load, used until there is a history.
- * @returns {{state:'CAL'|'UP'|'HOLD'|'ECC'|'DELOAD', kg:number|null, target:string}}
+ * @returns {{state:'CAL'|'UP'|'HOLD'|'ECC'|'DELOAD', kg:number|null, target:string, source?:string, from?:string}}
  */
 export function verdict(exercise, lastSets, start = null) {
   const done = validSets(lastSets);
-  if (!done.length) return { state: 'CAL', kg: start, target: `${exercise.min}-${exercise.max}` };
+  if (!done.length) return start != null
+    ? { state: 'CAL', kg: start, target: `${exercise.min}-${exercise.max}`, source: 'start' }
+    : { state: 'CAL', kg: guess(exercise), target: `${exercise.min}-${exercise.max}`, source: 'guess' };
   const top = Math.max(...done.map((s) => s.kg));
   if (earnedLoadUp(exercise, done)) {
     return { state: 'UP', kg: round(top + exercise.inc), target: `${exercise.min}+` };
@@ -48,7 +51,7 @@ export function verdict(exercise, lastSets, start = null) {
  * three sessions at one load without adding reps it prescribes a 10 % deload,
  * rounded down to the exercise's step. Progression resumes from there.
  */
-export function verdictFor(exercise, sessions, start = null) {
+export function verdictFor(exercise, sessions, start = null, starts = {}) {
   const last3 = [];
   for (let i = sessions.length - 1; i >= 0 && last3.length < 3; i--) {
     const sets = validSets(sessions[i].sets?.[exercise.id]);
@@ -62,7 +65,37 @@ export function verdictFor(exercise, sessions, start = null) {
       return { state: 'DELOAD', kg: round(Math.max(0, Math.floor((tops[0] * 0.9) / step) * step)), target: `${exercise.min}-${exercise.max}` };
     }
   }
+  if (!last3.length && start == null) {
+    const near = fromSibling(exercise, sessions, starts);
+    if (near) return near;
+  }
   return verdict(exercise, last3.at(-1) ?? null, start);
+}
+
+/** A cautious first load for an exercise with no history: 40 % of the reference, none for added weight. */
+export function guess(exercise) {
+  if (/lastre/.test(exercise.unit)) return 0;
+  const step = Math.abs(exercise.inc) || 1;
+  return round(Math.max(step, Math.floor((exercise.ref * 0.4) / step) * step));
+}
+
+/**
+ * First load estimated from another variant of the same movement that has a
+ * history or a starting load, when both use the same unit: 90 % of its last
+ * top load, rounded down to this exercise's step.
+ */
+function fromSibling(exercise, sessions, starts) {
+  const base = EXERCISES.find((b) => optionsFor(b.id).some((o) => o.id === exercise.id));
+  if (!base) return null;
+  for (const o of optionsFor(base.id)) {
+    if (o.id === exercise.id || o.unit !== exercise.unit) continue;
+    const last = lastSetsFor(sessions, o.id);
+    const kg = last ? Math.max(...last.map((s) => s.kg)) : starts[o.id];
+    if (kg == null || !(kg > 0)) continue;
+    const step = Math.abs(exercise.inc) || 1;
+    return { state: 'CAL', kg: round(Math.floor((kg * 0.9) / step) * step), target: `${exercise.min}-${exercise.max}`, source: 'sibling', from: o.name };
+  }
+  return null;
 }
 
 /** Sets of the most recent session that trained the exercise, or null. */

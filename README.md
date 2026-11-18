@@ -21,7 +21,13 @@ today's load goes up or stays, and turns consistency into something visible.
 
 - **Mission**: the next session of a 4-day split with two muscle groups per
   day (chest + triceps, back + biceps, legs + abs, shoulders + hamstrings),
-  with sets, rep range and reps in reserve for every exercise.
+  with sets, rep range and reps in reserve for every exercise. The current
+  block replaces a year of the same upper-body lifts with variants of the same
+  movements; the old lifts stay one tap away.
+- **A load for every set**: the app always proposes a weight. With a history it
+  applies the load protocol; without one it uses the starting load, or 90 % of
+  a sibling lift's last load when both use the same unit, or a cautious 40 % of
+  the reference load to calibrate.
 - **Starting point**: a starting rank and a starting load per exercise, set in
   the app and used until the first real record.
 - **Load protocol**: double progression. If every set reaches the top of the
@@ -99,12 +105,12 @@ npm run test:e2e     # the app in Chromium at a phone viewport (Playwright)
 
 Three layers, all run by CI on every push:
 
-- **Unit** (`tests/*.test.js`, 46): programme, double progression, XP and
+- **Unit** (`tests/*.test.js`, 47): programme, double progression, XP and
   ranks, streaks, stats, the supervision rules, the merge of two devices, the
   sync module against a fake Firestore, input sanitising, the AI answer parser,
   a check that the fields the app sends match the fields the rules allow, and
   the sync resuming when the connection returns after an offline launch, and
-  the automatic deloads and plateau swaps.
+  the automatic deloads, plateau swaps and proposed first loads.
 - **Rules** (`tests/rules`, 7): `firestore.rules` in the Firestore emulator
   with documents built by the app's own functions: the owner can read and write,
   nobody else can, nothing is deleted, malformed documents and unknown paths are
@@ -138,7 +144,7 @@ tests/           unit tests; tests/rules emulator tests; tests/e2e browser tests
 
 ## Status
 
-Version 0.4, in daily use by its author on an iPhone. The programme is defined
+Version 0.5, in daily use by its author on an iPhone. The programme is defined
 in code and is not editable in the app yet; starting loads are personal data
 and live in each person's state.
 
